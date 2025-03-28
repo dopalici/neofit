@@ -9,6 +9,7 @@ import AdvisorChatbot from './components/chatbot/AdvisorChatbot';
 import { fetchHealthData } from './services/healthService';
 import { fetchNutritionData } from './services/nutritionService';
 import HabitDashboard from './components/dashboard/HabitDashboard';
+import HealthDataDashboard from './components/dashboard/HealthDataDashboard';
 import { getHabitData, recordCheckIn, STORAGE_KEYS } from './utils/storageUtils';
 
 function App() {
@@ -241,6 +242,12 @@ function App() {
                 >
                   NUTRITION
                 </button>
+                <button 
+                  className={`py-3 px-4 ${activeTab === 'health' ? 'text-cyan-300 border-b-2 border-cyan-500' : 'text-cyan-600'}`}
+                  onClick={() => setActiveTab('health')}
+                >
+                  HEALTH DATA
+                </button>
               </div>
             </div>
           </div>
@@ -411,10 +418,10 @@ function App() {
             </div>
           )}
           
-          {/* Chatbot */}
-          <AdvisorChatbot userData={userData} userGoals={userGoals} />
-        </>
-      )}
+          {/* Health Data Dashboard */}
+          {activeTab === 'health' && (
+            <HealthDataDashboard />
+          )}
       
       {/* Integration modal */}
       {showIntegrationModal && (

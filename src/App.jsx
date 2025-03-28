@@ -422,6 +422,11 @@ function App() {
           {activeTab === 'health' && (
             <HealthDataDashboard />
           )}
+          
+          {/* Chatbot */}
+          <AdvisorChatbot userData={userData} userGoals={userGoals} />
+        </>
+      )}
       
       {/* Integration modal */}
       {showIntegrationModal && (

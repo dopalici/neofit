@@ -3,8 +3,8 @@
 import { saveToStorage, getFromStorage } from '../utils/storageUtils';
 import { formatISO, parseISO, isValid } from 'date-fns';
 
-// Storage keys
-const STORAGE_KEYS = {
+// Storage keys - Export these so they can be used in other services
+export const STORAGE_KEYS = {
   IMPORTED_HEALTH_DATA: 'imported-health-data',
   HEART_RATE_DATA: 'heart-rate-data',
   STEP_COUNT_DATA: 'step-count-data',
@@ -72,6 +72,17 @@ export function importHealthData(data, fileType) {
       workoutData,
       allDates
     });
+  } else if (fileType === 'parsed-xml') {
+    // Process data that has already been extracted from XML
+    processXMLData(data, {
+      heartRateData,
+      stepData,
+      weightData,
+      sleepData,
+      vo2maxData,
+      workoutData,
+      allDates
+    });
   }
   
   // Update stats
@@ -99,13 +110,95 @@ export function importHealthData(data, fileType) {
   
   // Save the raw imported data (may be useful for debugging)
   saveToStorage(STORAGE_KEYS.IMPORTED_HEALTH_DATA, {
-    data: data.slice(0, 1000), // Save a subset to avoid storage issues
+    // For parsed-xml, we don't store the raw data as it would be too large
+    data: fileType === 'parsed-xml' ? [] : data.slice(0, 1000), 
     fileType,
     importDate: new Date().toISOString(),
     stats
   });
   
   return stats;
+}
+
+/**
+ * Process XML data that has been pre-extracted from Apple Health exports
+ */
+function processXMLData(data, dataCollections) {
+  const {
+    heartRateData,
+    stepData,
+    weightData,
+    sleepData,
+    vo2maxData,
+    workoutData,
+    allDates
+  } = dataCollections;
+  
+  // The data should already be categorized by type in the XML preprocessing
+  data.forEach(item => {
+    const type = item.type.toLowerCase();
+    const dateStr = item.date;
+    const value = item.value;
+    
+    if (!dateStr || value === undefined || value === null) return;
+    
+    // Parse the date
+    const date = parseDate(dateStr);
+    if (!date || !isValid(date)) return;
+    
+    // Add to all dates array for tracking date range
+    allDates.push(date);
+    
+    // Process based on type
+    switch(type) {
+      case 'heartrate':
+        heartRateData.push({
+          date: date.toISOString(),
+          value: parseFloat(value),
+          unit: item.unit || 'bpm'
+        });
+        break;
+      case 'steps':
+        stepData.push({
+          date: date.toISOString(),
+          value: parseInt(value, 10),
+          unit: item.unit || 'count'
+        });
+        break;
+      case 'weight':
+        weightData.push({
+          date: date.toISOString(),
+          value: parseFloat(value),
+          unit: item.unit || 'kg'
+        });
+        break;
+      case 'sleep':
+        sleepData.push({
+          date: date.toISOString(),
+          value: parseFloat(value),
+          unit: item.unit || 'hours'
+        });
+        break;
+      case 'vo2max':
+        vo2maxData.push({
+          date: date.toISOString(),
+          value: parseFloat(value),
+          unit: item.unit || 'ml/kg/min'
+        });
+        break;
+      case 'workout':
+        workoutData.push({
+          date: date.toISOString(),
+          type: item.workoutType || 'unknown',
+          duration: parseFloat(value),
+          unit: item.unit || 'seconds',
+          calories: item.calories || null,
+          distance: item.distance || null
+        });
+        break;
+      // The data may also have an 'other' type which we'll ignore
+    }
+  });
 }
 
 /**

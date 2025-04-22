@@ -1,22 +1,18 @@
 import React, { useRef, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { useGLTF, OrbitControls, Environment, Text } from '@react-three/drei';
+import { Canvas, useFrame } from '@react-three/fiber'; // Import both from fiber
+import { useGLTF, Environment, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
-// Use a placeholder path initially, you'll replace this with your Mixamo model path
-const MODEL_PATH = '/models/human_model.glb';
+// Update this path to match your model's filename
+const MODEL_PATH = '/models/ImageToStl.com_Animated_Strength_042_0421221711_texture.glb';
 
 function VitruvianHuman({ progress, milestones, ...props }) {
   const group = useRef();
-  // If the model exists, uncomment this line:
-  // const { nodes, materials } = useGLTF(MODEL_PATH);
+  // Load your model
+  const { nodes, materials } = useGLTF(MODEL_PATH);
   
   // Highlighting based on milestones achieved
   useEffect(() => {
-    // When you have your actual model loaded, uncomment and modify this code
-    // to change material colors based on milestone progress
-    
-    /*
     // Reset all materials
     Object.values(materials).forEach(material => {
       material.color = new THREE.Color('#08f7fe');
@@ -25,16 +21,20 @@ function VitruvianHuman({ progress, milestones, ...props }) {
     
     // Highlight parts based on milestones
     if (milestones.strength > 70) {
-      materials.arms.emissive = new THREE.Color('#fe53bb');
-      materials.arms.emissiveIntensity = 0.5;
+      // Update these material names based on your actual model's material names
+      if (materials.arms) {
+        materials.arms.emissive = new THREE.Color('#fe53bb');
+        materials.arms.emissiveIntensity = 0.5;
+      }
     }
     
     if (milestones.cardio > 80) {
-      materials.heart.emissive = new THREE.Color('#fe53bb');
-      materials.heart.emissiveIntensity = 0.5;
+      if (materials.torso) {
+        materials.torso.emissive = new THREE.Color('#fe53bb');
+        materials.torso.emissiveIntensity = 0.5;
+      }
     }
-    */
-  }, [milestones]);
+  }, [milestones, materials]);
   
   // Subtle animation
   useFrame((state) => {
@@ -52,37 +52,30 @@ function VitruvianHuman({ progress, milestones, ...props }) {
 
   return (
     <group ref={group} {...props} dispose={null}>
-      {/* Placeholder model until your Mixamo model is ready */}
-      <mesh position={[0, 0, 0]}>
-        <cylinderGeometry args={[0.5, 0.5, 2, 32]} />
-        <meshStandardMaterial color="#08f7fe" opacity={0.8} transparent />
-      </mesh>
-      <mesh position={[0, 1.5, 0]}>
-        <sphereGeometry args={[0.5, 32, 32]} />
-        <meshStandardMaterial color="#08f7fe" opacity={0.8} transparent />
-      </mesh>
-      <mesh position={[0.8, 0.3, 0]}>
-        <boxGeometry args={[0.2, 1, 0.2]} />
-        <meshStandardMaterial color="#fe53bb" opacity={0.8} transparent />
-      </mesh>
-      <mesh position={[-0.8, 0.3, 0]}>
-        <boxGeometry args={[0.2, 1, 0.2]} />
-        <meshStandardMaterial color="#fe53bb" opacity={0.8} transparent />
-      </mesh>
+      {/* Replace this with your actual model structure */}
+      {Object.keys(nodes).map((nodeName) => {
+        const node = nodes[nodeName];
+        
+        // Only handle mesh nodes - skip other types like bones
+        if (node.type === 'SkinnedMesh' || node.type === 'Mesh') {
+          return (
+            <skinnedMesh
+              key={nodeName}
+              geometry={node.geometry}
+              material={node.material}
+              skeleton={node.skeleton}
+              name={nodeName}
+            />
+          );
+        }
+        return null;
+      })}
       
       {/* Da Vinci style circle */}
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[2, 0.02, 16, 100]} />
         <meshStandardMaterial color="#08f7fe" opacity={0.3} transparent />
       </mesh>
-      
-      {/* When you have your Mixamo model, replace the above with something like: 
-      <skinnedMesh 
-        geometry={nodes.Body.geometry}
-        material={materials.body}
-        skeleton={nodes.Body.skeleton}
-      />
-      */}
     </group>
   );
 }
@@ -122,5 +115,5 @@ export default function VitruvianModelViewer({ userData, progress }) {
   );
 }
 
-// Preload the model - uncomment when you have your model
-// useGLTF.preload(MODEL_PATH);
+// Preload the model
+useGLTF.preload(MODEL_PATH);

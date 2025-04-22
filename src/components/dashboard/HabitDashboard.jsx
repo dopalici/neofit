@@ -1,8 +1,14 @@
+// src/components/dashboard/HabitDashboard.jsx
 import React from 'react';
 import DailyCheckIn from '../habit/DailyCheckIn';
 import HabitStreakTracker from '../habit/HabitStreakTracker';
+// Import the other habit components
+import ProgressiveChallenge from '../habit/ProgressiveChallenge';
+import VariableRewardsSystem from '../habit/VariableRewardsSystem';
+import InvestmentFeature from '../habit/InvestmentFeature'; // Assuming this is the Workout/Metrics Log
 
-export default function HabitDashboard({ userData, healthData }) {
+// Pass necessary props down, e.g., userData for rewards, habitData if needed
+export default function HabitDashboard({ userData, habitData, onCheckIn }) {
   return (
     <div className="container mx-auto px-6 py-8">
       <div className="flex justify-between items-center mb-8">
@@ -11,18 +17,35 @@ export default function HabitDashboard({ userData, healthData }) {
           BASED ON NEUROLOGICAL HABIT RESEARCH
         </div>
       </div>
-      
-      {/* First Row - Initial Habit Features */}
+
+      {/* First Row - Core Streak & Check-in */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <HabitStreakTracker />
-        <DailyCheckIn />
+        {/* Pass relevant parts of habitData if available */}
+        <HabitStreakTracker streakData={habitData?.streakData} />
+        {/* Pass onCheckIn handler and relevant data */}
+        <DailyCheckIn checkInData={habitData?.checkInsData} onCheckIn={onCheckIn} />
       </div>
-      
-      {/* Placeholder for future components */}
-      <div className="bg-gray-950 border border-cyan-800 rounded-lg p-6 text-center">
-        <p className="text-cyan-400 font-mono">ADDITIONAL HABIT FEATURES COMING SOON</p>
-        <p className="text-xs text-cyan-600 font-mono mt-2">Check back for variable rewards, progressive challenges, and more</p>
+
+      {/* Second Row - Challenges & Rewards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* Challenges might need specific user progress data */}
+        <ProgressiveChallenge />
+        {/* Rewards system likely needs userData to check eligibility */}
+        <VariableRewardsSystem userData={userData} claimedRewardsData={habitData?.rewardsData} />
       </div>
+
+      {/* Third Row - Personal Logs/Metrics */}
+      <div className="grid grid-cols-1 gap-6 mb-6">
+         {/* Renamed from InvestmentFeature - This component manages its own state via localStorage */}
+        <InvestmentFeature />
+      </div>
+
+      {/* Add SmartReminders if desired */}
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+         {/* SmartReminders manages its own state via localStorage */}
+         {/* <SmartReminders /> */}
+       </div>
+
     </div>
   );
 }

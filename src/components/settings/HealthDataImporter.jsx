@@ -8,12 +8,14 @@ export default function HealthDataImporter({ onDataImported }) {
   const [uploadStatus, setUploadStatus] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [importStats, setImportStats] = useState(null);
+  const [processingProgress, setProcessingProgress] = useState(0);
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     setSelectedFile(file);
     setUploadStatus(null);
     setImportStats(null);
+    setProcessingProgress(0);
   };
 
   const processHealthData = async (file) => {
@@ -82,16 +84,184 @@ export default function HealthDataImporter({ onDataImported }) {
           });
         }
       } else if (fileType === "xml") {
-        // For XML files (common for Apple Health exports)
-        setUploadStatus({
-          status: "error",
-          message:
-            "XML parsing requires additional libraries. Please convert to CSV or JSON format.",
-        });
+        // Process XML file (Apple Health Data)
+        try {
+          setUploadStatus({ 
+            status: "processing", 
+            message: "Reading Apple Health XML file..." 
+          });
+          
+          // Process the file in chunks instead of loading it all at once
+          const reader = new FileReader();
+          
+          reader.onload = (event) => {
+            try {
+              const text = event.target.result;
+              
+              setUploadStatus({ 
+                status: "processing", 
+                message: "Parsing XML data..." 
+              });
+              
+              // Use a more robust parsing approach
+              const parser = new DOMParser();
+              const xmlDoc = parser.parseFromString(text, "text/xml");
+              
+              // Check for parsing errors (look for parsererror nodes)
+              const parseErrors = xmlDoc.getElementsByTagName('parsererror');
+              if (parseErrors.length > 0) {
+                throw new Error("XML parsing error: " + parseErrors[0].textContent);
+              }
+              
+              // Create an array to store the extracted data
+              const extractedData = [];
+              
+              setUploadStatus({ 
+                status: "processing", 
+                message: "Extracting health data..." 
+              });
+              
+              // Process the healthdata more carefully
+              const healthData = xmlDoc.querySelector('HealthData');
+              if (!healthData) {
+                throw new Error("No HealthData element found in XML");
+              }
+              
+              // Process records in batches for better performance
+              processRecordsInBatches(xmlDoc, extractedData);
+              
+              // Import the extracted data
+              if (extractedData.length === 0) {
+                throw new Error("No usable health data found in the XML file");
+              }
+              
+              setUploadStatus({ 
+                status: "processing", 
+                message: `Processing ${extractedData.length} health records...` 
+              });
+              
+              const stats = importHealthData(extractedData, 'parsed-xml');
+              setImportStats(stats);
+              setUploadStatus({
+                status: "success",
+                message: `Successfully imported ${extractedData.length} records from Apple Health data!`,
+              });
+              
+              // Notify parent component
+              if (onDataImported) onDataImported(stats);
+            } catch (err) {
+              console.error("XML processing error:", err);
+              setUploadStatus({
+                status: "error",
+                message: `Error processing XML: ${err.message}`,
+              });
+              setIsUploading(false);
+            }
+          };
+          
+          reader.onerror = (error) => {
+            setUploadStatus({
+              status: "error",
+              message: `Error reading file: ${error}`,
+            });
+            setIsUploading(false);
+          };
+          
+          // Read the file as text
+          reader.readAsText(file);
+          
+          // Define the function to process records in batches
+          function processRecordsInBatches(xmlDoc, extractedData) {
+            // Process Record elements (contains most health metrics)
+            const records = xmlDoc.querySelectorAll('Record');
+            console.log(`Found ${records.length} records`);
+            
+            // Process in smaller batches to avoid browser freezing
+            const batchSize = 5000;
+            const totalBatches = Math.ceil(records.length / batchSize);
+            
+            for (let i = 0; i < records.length; i += batchSize) {
+              const currentBatch = Math.floor(i / batchSize) + 1;
+              setProcessingProgress(Math.floor((currentBatch / totalBatches) * 100));
+              setUploadStatus({ 
+                status: "processing", 
+                message: `Processing records (batch ${currentBatch}/${totalBatches})...` 
+              });
+              
+              const batch = Array.from(records).slice(i, i + batchSize);
+              
+              batch.forEach(record => {
+                const type = record.getAttribute('type');
+                const value = record.getAttribute('value');
+                const unit = record.getAttribute('unit');
+                const startDate = record.getAttribute('startDate');
+                
+                // Only process records with values
+                if (value && startDate) {
+                  // Map Apple Health types to our app's types
+                  let dataType = 'other';
+                  
+                  if (type.includes('HeartRate')) {
+                    dataType = 'heartRate';
+                  } else if (type.includes('StepCount')) {
+                    dataType = 'steps';
+                  } else if (type.includes('BodyMass')) {
+                    dataType = 'weight';
+                  } else if (type.includes('VO2Max')) {
+                    dataType = 'vo2max';
+                  } else if (type.includes('SleepAnalysis')) {
+                    dataType = 'sleep';
+                  }
+                  
+                  extractedData.push({
+                    type: dataType,
+                    originalType: type,
+                    value: parseFloat(value),
+                    unit: unit,
+                    date: startDate
+                  });
+                }
+              });
+            }
+            
+            // Process Workout elements
+            setUploadStatus({ 
+              status: "processing", 
+              message: "Processing workouts..." 
+            });
+            
+            const workouts = xmlDoc.querySelectorAll('Workout');
+            console.log(`Found ${workouts.length} workouts`);
+            workouts.forEach(workout => {
+              const type = workout.getAttribute('workoutActivityType');
+              const duration = workout.getAttribute('duration');
+              const startDate = workout.getAttribute('startDate');
+              const calories = workout.getAttribute('totalEnergyBurned');
+              
+              if (duration && startDate) {
+                extractedData.push({
+                  type: 'workout',
+                  workoutType: type,
+                  value: parseFloat(duration),
+                  calories: calories ? parseFloat(calories) : null,
+                  unit: 'seconds',
+                  date: startDate
+                });
+              }
+            });
+          }
+        } catch (error) {
+          console.error("XML processing error:", error);
+          setUploadStatus({
+            status: "error",
+            message: `Error processing XML: ${error.message}`,
+          });
+          setIsUploading(false);
+        }
       } else {
         setUploadStatus({
           status: "error",
-          message: `Unsupported file type: ${fileType}. Please use CSV or JSON.`,
+          message: `Unsupported file type: ${fileType}. Please use CSV, JSON, or XML.`,
         });
       }
     } catch (error) {
@@ -100,7 +270,9 @@ export default function HealthDataImporter({ onDataImported }) {
         message: `Error processing file: ${error.message}`,
       });
     } finally {
-      setIsUploading(false);
+      
+        setIsUploading(false);
+      
     }
   };
 
@@ -113,7 +285,7 @@ export default function HealthDataImporter({ onDataImported }) {
       <div className="mb-6">
         <p className="text-sm text-cyan-600 font-mono mb-2">
           Upload your exported health data to visualize it in NEO•VITRU.
-          Supported formats: CSV, JSON
+          Supported formats: CSV, JSON, XML (Apple Health)
         </p>
 
         <div
@@ -215,6 +387,20 @@ export default function HealthDataImporter({ onDataImported }) {
               <p className="text-sm font-mono text-gray-400 mt-1">
                 {uploadStatus.message}
               </p>
+              
+              {uploadStatus.status === "processing" && processingProgress > 0 && (
+                <div className="mt-2">
+                  <div className="w-full bg-gray-800 h-1.5 rounded-full">
+                    <div 
+                      className="bg-cyan-500 h-1.5 rounded-full"
+                      style={{ width: `${processingProgress}%` }} 
+                    ></div>
+                  </div>
+                  <p className="text-xs text-cyan-600 font-mono mt-1 text-right">
+                    {processingProgress}%
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

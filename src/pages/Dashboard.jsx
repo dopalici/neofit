@@ -7,13 +7,17 @@ import ProgressionSection from '../components/dashboard/ProgressionSection';
 import NutritionPanel from '../components/dashboard/NutritionPanel';
 import ActivityLog from '../components/dashboard/ActivityLog';
 import ChatInterface from '../components/chatbot/ChatInterface';
+import HabitDashboard from '../components/dashboard/HabitDashboard';
 import { fetchAppleHealthData } from '../services/healthApi';
 import { fetchMyFitnessPalData } from '../services/nutritionApi';
+import BiometricPanel from '../components/dashboard/UpdatedBiometricPanel';
+import { Flame, Calendar, BarChart3, Brain } from 'lucide-react';
 
 export default function Dashboard() {
   const [healthData, setHealthData] = useState(null);
   const [nutritionData, setNutritionData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('main');
   const [showChatbot, setShowChatbot] = useState(false);
   
   // User goals - in a real app, these would come from user settings
@@ -76,48 +80,87 @@ export default function Dashboard() {
     <MainLayout>
       <div className="container mx-auto px-6 py-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-cyan-300 font-mono">HUMAN OPTIMIZATION MATRIX</h1>
-          <button 
-            onClick={() => setShowChatbot(!showChatbot)}
-            className="bg-cyan-900 text-cyan-300 border border-cyan-600 px-4 py-2 rounded font-medium hover:bg-cyan-800 transition"
-          >
-            {showChatbot ? 'CLOSE ADVISOR' : 'AI ADVISOR'}
-          </button>
+          <h1 className="text-2xl font-bold text-cyan-300 font-mono">
+            {activeTab === 'main' ? 'HUMAN OPTIMIZATION MATRIX' : 'HABIT OPTIMIZATION SYSTEM'}
+          </h1>
+          
+          <div className="flex space-x-4">
+            {/* Tab navigation */}
+            <div className="flex border border-cyan-800 rounded-lg overflow-hidden">
+              <button 
+                onClick={() => setActiveTab('main')}
+                className={`flex items-center px-4 py-2 text-xs font-mono ${
+                  activeTab === 'main' 
+                    ? 'bg-cyan-900 text-cyan-300' 
+                    : 'bg-gray-900 text-cyan-600 hover:text-cyan-500'
+                }`}
+              >
+                <BarChart3 size={14} className="mr-2" />
+                MAIN DASHBOARD
+              </button>
+              <button 
+                onClick={() => setActiveTab('habits')}
+                className={`flex items-center px-4 py-2 text-xs font-mono ${
+                  activeTab === 'habits' 
+                    ? 'bg-cyan-900 text-cyan-300' 
+                    : 'bg-gray-900 text-cyan-600 hover:text-cyan-500'
+                }`}
+              >
+                <Flame size={14} className="mr-2" />
+                HABIT SYSTEM
+              </button>
+            </div>
+            
+            {/* Only show AI Advisor in main dashboard */}
+            {activeTab === 'main' && (
+              <button 
+                onClick={() => setShowChatbot(!showChatbot)}
+                className="bg-cyan-900 text-cyan-300 border border-cyan-600 px-4 py-2 rounded font-medium hover:bg-cyan-800 transition flex items-center"
+              >
+                <Brain size={14} className="mr-2" />
+                {showChatbot ? 'CLOSE ADVISOR' : 'AI ADVISOR'}
+              </button>
+            )}
+          </div>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left column with 3D model */}
-          <div className="lg:col-span-1">
-            <BiometricModel 
-              healthData={healthData} 
-              userGoals={userGoals}
-            />
-          </div>
-          
-          {/* Right column with metrics and data */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Conditional rendering for chatbot */}
-            {showChatbot ? (
-              <div className="h-96">
-                <ChatInterface 
-                  userData={{ metrics: healthData }} 
-                  userGoals={userGoals} 
-                />
-              </div>
-            ) : (
-              <>
-                <EnhancementMetrics healthData={healthData} />
-                <ProgressionSection goals={userGoals} />
-              </>
-            )}
+        {activeTab === 'main' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left column with 3D model */}
+            <div className="lg:col-span-1">
+              <BiometricModel 
+                healthData={healthData} 
+                userGoals={userGoals}
+              />
+            </div>
             
-            {/* Bottom row with nutrition and activity */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <NutritionPanel nutritionData={nutritionData} />
-              <ActivityLog healthData={healthData} />
+            {/* Right column with metrics and data */}
+            <div className="lg:col-span-2 space-y-8">
+              {/* Conditional rendering for chatbot */}
+              {showChatbot ? (
+                <div className="h-96">
+                  <ChatInterface 
+                    userData={{ metrics: healthData }} 
+                    userGoals={userGoals} 
+                  />
+                </div>
+              ) : (
+                <>
+                  <EnhancementMetrics healthData={healthData} />
+                  <ProgressionSection goals={userGoals} />
+                </>
+              )}
+              
+              {/* Bottom row with nutrition and activity */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <NutritionPanel nutritionData={nutritionData} />
+                <ActivityLog healthData={healthData} />
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <HabitDashboard />
+        )}
       </div>
     </MainLayout>
   );

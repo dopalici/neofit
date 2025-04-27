@@ -1,22 +1,24 @@
 // src/services/dataImportService.js
 
-import { saveToStorage, getFromStorage } from '../utils/storageUtils';
-import { formatISO, parseISO, isValid } from 'date-fns';
+import { formatISO, isValid, parseISO } from "date-fns";
+import { getFromStorage, saveToStorage } from "../utils/storageUtils";
 
 // Storage keys - Export these so they can be used in other services
 export const STORAGE_KEYS = {
-  IMPORTED_HEALTH_DATA: 'imported-health-data',
-  HEART_RATE_DATA: 'heart-rate-data',
-  STEP_COUNT_DATA: 'step-count-data',
-  WEIGHT_DATA: 'weight-data',
-  SLEEP_DATA: 'sleep-data',
-  VO2MAX_DATA: 'vo2max-data',
-  WORKOUT_DATA: 'workout-data'
+  IMPORTED_HEALTH_DATA: "imported-health-data",
+  HEART_RATE_DATA: "heart-rate-data",
+  STEP_COUNT_DATA: "step-count-data",
+  WEIGHT_DATA: "weight-data",
+  SLEEP_DATA: "sleep-data",
+  VO2MAX_DATA: "vo2max-data",
+  WORKOUT_DATA: "workout-data",
+  NUTRITION_DATA: "nutrition-data",
+  IMPORT_HISTORY: "health-import-history",
 };
 
 /**
  * Import health data from various sources
- * 
+ *
  * @param {Array|Object} data - The parsed data from the file
  * @param {string} fileType - The type of file (csv, json, etc.)
  * @returns {Object} Statistics about the imported data
@@ -30,14 +32,15 @@ export function importHealthData(data, fileType) {
       weight: 0,
       sleep: 0,
       vo2max: 0,
-      workouts: 0
+      workouts: 0,
+      nutrition: 0,
     },
     dateRange: {
       start: null,
-      end: null
-    }
+      end: null,
+    },
   };
-  
+
   // Arrays to store different types of data
   const heartRateData = [];
   const stepData = [];
@@ -45,12 +48,13 @@ export function importHealthData(data, fileType) {
   const sleepData = [];
   const vo2maxData = [];
   const workoutData = [];
-  
+  const nutritionData = [];
+
   // Track dates for determining the date range
   const allDates = [];
-  
+
   // Process data based on file type
-  if (fileType === 'csv') {
+  if (fileType === "csv") {
     // Process CSV data (already parsed by PapaParse in the component)
     processCSVData(data, {
       heartRateData,
@@ -59,9 +63,10 @@ export function importHealthData(data, fileType) {
       sleepData,
       vo2maxData,
       workoutData,
-      allDates
+      nutritionData,
+      allDates,
     });
-  } else if (fileType === 'json') {
+  } else if (fileType === "json") {
     // Process JSON data based on its structure
     processJSONData(data, {
       heartRateData,
@@ -70,9 +75,10 @@ export function importHealthData(data, fileType) {
       sleepData,
       vo2maxData,
       workoutData,
-      allDates
+      nutritionData,
+      allDates,
     });
-  } else if (fileType === 'parsed-xml') {
+  } else if (fileType === "parsed-xml") {
     // Process data that has already been extracted from XML
     processXMLData(data, {
       heartRateData,
@@ -81,10 +87,11 @@ export function importHealthData(data, fileType) {
       sleepData,
       vo2maxData,
       workoutData,
-      allDates
+      nutritionData,
+      allDates,
     });
   }
-  
+
   // Update stats
   stats.counts.heartRate = heartRateData.length;
   stats.counts.steps = stepData.length;
@@ -92,14 +99,19 @@ export function importHealthData(data, fileType) {
   stats.counts.sleep = sleepData.length;
   stats.counts.vo2max = vo2maxData.length;
   stats.counts.workouts = workoutData.length;
-  
+  stats.counts.nutrition = nutritionData.length;
+
   // Calculate date range
   if (allDates.length > 0) {
     const sortedDates = allDates.sort((a, b) => a - b);
-    stats.dateRange.start = formatISO(sortedDates[0], { representation: 'date' });
-    stats.dateRange.end = formatISO(sortedDates[sortedDates.length - 1], { representation: 'date' });
+    stats.dateRange.start = formatISO(sortedDates[0], {
+      representation: "date",
+    });
+    stats.dateRange.end = formatISO(sortedDates[sortedDates.length - 1], {
+      representation: "date",
+    });
   }
-  
+
   // Save the processed data
   saveToStorage(STORAGE_KEYS.HEART_RATE_DATA, heartRateData);
   saveToStorage(STORAGE_KEYS.STEP_COUNT_DATA, stepData);
@@ -107,16 +119,17 @@ export function importHealthData(data, fileType) {
   saveToStorage(STORAGE_KEYS.SLEEP_DATA, sleepData);
   saveToStorage(STORAGE_KEYS.VO2MAX_DATA, vo2maxData);
   saveToStorage(STORAGE_KEYS.WORKOUT_DATA, workoutData);
-  
+  saveToStorage(STORAGE_KEYS.NUTRITION_DATA, nutritionData);
+
   // Save the raw imported data (may be useful for debugging)
   saveToStorage(STORAGE_KEYS.IMPORTED_HEALTH_DATA, {
     // For parsed-xml, we don't store the raw data as it would be too large
-    data: fileType === 'parsed-xml' ? [] : data.slice(0, 1000), 
+    data: fileType === "parsed-xml" ? [] : data.slice(0, 1000),
     fileType,
     importDate: new Date().toISOString(),
-    stats
+    stats,
   });
-  
+
   return stats;
 }
 
@@ -131,125 +144,258 @@ function processXMLData(data, dataCollections) {
     sleepData,
     vo2maxData,
     workoutData,
-    allDates
+    allDates,
   } = dataCollections;
-  
-  // The data should already be categorized by type in the XML preprocessing
-  data.forEach(item => {
-    const type = item.type.toLowerCase();
-    const dateStr = item.date;
-    const value = item.value;
-    
-    if (!dateStr || value === undefined || value === null) return;
-    
-    // Parse the date
-    const date = parseDate(dateStr);
-    if (!date || !isValid(date)) return;
-    
-    // Add to all dates array for tracking date range
-    allDates.push(date);
-    
-    // Process based on type
-    switch(type) {
-      case 'heartrate':
+
+  // Process the different categories of data from the pre-extracted XML data
+  // First, process heart rate data
+  if (data.heartRate && Array.isArray(data.heartRate)) {
+    data.heartRate.forEach((item) => {
+      try {
+        const dateStr = item.date;
+        const value = parseFloat(item.value);
+
+        if (!dateStr || isNaN(value)) return;
+
+        // Parse the date
+        const date = parseDate(dateStr);
+        if (!date || !isValid(date)) return;
+
+        // Add to all dates array for tracking date range
+        allDates.push(date);
+
         heartRateData.push({
           date: date.toISOString(),
-          value: parseFloat(value),
-          unit: item.unit || 'bpm'
+          value: value,
+          unit: item.unit || "bpm",
         });
-        break;
-      case 'steps':
+      } catch (error) {
+        console.warn("Error processing heart rate data:", error);
+      }
+    });
+  }
+
+  // Process step data
+  if (data.steps && Array.isArray(data.steps)) {
+    data.steps.forEach((item) => {
+      try {
+        const dateStr = item.date;
+        const value = parseInt(item.value, 10);
+
+        if (!dateStr || isNaN(value)) return;
+
+        // Parse the date
+        const date = parseDate(dateStr);
+        if (!date || !isValid(date)) return;
+
+        // Add to all dates array for tracking date range
+        allDates.push(date);
+
         stepData.push({
           date: date.toISOString(),
-          value: parseInt(value, 10),
-          unit: item.unit || 'count'
+          value: value,
+          unit: item.unit || "count",
         });
-        break;
-      case 'weight':
+      } catch (error) {
+        console.warn("Error processing step data:", error);
+      }
+    });
+  }
+
+  // Process weight data
+  if (data.weight && Array.isArray(data.weight)) {
+    data.weight.forEach((item) => {
+      try {
+        const dateStr = item.date;
+        const value = parseFloat(item.value);
+
+        if (!dateStr || isNaN(value)) return;
+
+        // Parse the date
+        const date = parseDate(dateStr);
+        if (!date || !isValid(date)) return;
+
+        // Add to all dates array for tracking date range
+        allDates.push(date);
+
         weightData.push({
           date: date.toISOString(),
-          value: parseFloat(value),
-          unit: item.unit || 'kg'
+          value: value,
+          unit: item.unit || "kg",
         });
-        break;
-      case 'sleep':
+      } catch (error) {
+        console.warn("Error processing weight data:", error);
+      }
+    });
+  }
+
+  // Process sleep data
+  if (data.sleep && Array.isArray(data.sleep)) {
+    data.sleep.forEach((item) => {
+      try {
+        const dateStr = item.date;
+        const value = parseFloat(item.value);
+
+        if (!dateStr || isNaN(value)) return;
+
+        // Parse the date
+        const date = parseDate(dateStr);
+        if (!date || !isValid(date)) return;
+
+        // Add to all dates array for tracking date range
+        allDates.push(date);
+
         sleepData.push({
           date: date.toISOString(),
-          value: parseFloat(value),
-          unit: item.unit || 'hours'
+          value: value,
+          unit: item.unit || "hours",
+          category: item.category || "unknown",
         });
-        break;
-      case 'vo2max':
+      } catch (error) {
+        console.warn("Error processing sleep data:", error);
+      }
+    });
+  }
+
+  // Process VO2max data
+  if (data.vo2max && Array.isArray(data.vo2max)) {
+    data.vo2max.forEach((item) => {
+      try {
+        const dateStr = item.date;
+        const value = parseFloat(item.value);
+
+        if (!dateStr || isNaN(value)) return;
+
+        // Parse the date
+        const date = parseDate(dateStr);
+        if (!date || !isValid(date)) return;
+
+        // Add to all dates array for tracking date range
+        allDates.push(date);
+
         vo2maxData.push({
           date: date.toISOString(),
-          value: parseFloat(value),
-          unit: item.unit || 'ml/kg/min'
+          value: value,
+          unit: item.unit || "ml/kg/min",
         });
-        break;
-      case 'workout':
+      } catch (error) {
+        console.warn("Error processing VO2max data:", error);
+      }
+    });
+  }
+
+  // Process workout data
+  if (data.workouts && Array.isArray(data.workouts)) {
+    data.workouts.forEach((item) => {
+      try {
+        const dateStr = item.date;
+        const type = item.type || "unknown";
+        const duration = parseFloat(item.duration);
+
+        if (!dateStr || isNaN(duration)) return;
+
+        // Parse the date
+        const date = parseDate(dateStr);
+        if (!date || !isValid(date)) return;
+
+        // Add to all dates array for tracking date range
+        allDates.push(date);
+
         workoutData.push({
           date: date.toISOString(),
-          type: item.workoutType || 'unknown',
-          duration: parseFloat(value),
-          unit: item.unit || 'seconds',
-          calories: item.calories || null,
-          distance: item.distance || null
+          type: type,
+          duration: duration,
+          unit: item.unit || "seconds",
+          calories:
+            item.calories !== undefined ? parseFloat(item.calories) : null,
+          distance:
+            item.distance !== undefined ? parseFloat(item.distance) : null,
         });
-        break;
-      // The data may also have an 'other' type which we'll ignore
-    }
-  });
+      } catch (error) {
+        console.warn("Error processing workout data:", error);
+      }
+    });
+  }
+
+  // Process nutrition data (if present)
+  if (data.nutrition && Array.isArray(data.nutrition)) {
+    const nutritionData = dataCollections.nutritionData || [];
+
+    data.nutrition.forEach((item) => {
+      try {
+        const dateStr = item.date;
+        const name = item.name || "Unknown Food";
+        const calories = parseFloat(item.calories || 0);
+
+        if (!dateStr) return;
+
+        // Parse the date
+        const date = parseDate(dateStr);
+        if (!date || !isValid(date)) return;
+
+        // Add to all dates array for tracking date range
+        allDates.push(date);
+
+        nutritionData.push({
+          date: date.toISOString(),
+          name: name,
+          calories: calories,
+          protein: parseFloat(item.protein || 0),
+          carbs: parseFloat(item.carbs || 0),
+          fat: parseFloat(item.fat || 0),
+        });
+      } catch (error) {
+        console.warn("Error processing nutrition data:", error);
+      }
+    });
+
+    // If nutritionData is provided in dataCollections, it will be updated by reference
+    // Otherwise, we might need to manually add it to the storage elsewhere
+  }
 }
 
 /**
  * Process CSV data and extract health metrics
  */
 function processCSVData(data, dataCollections) {
-  const {
-    heartRateData,
-    stepData,
-    weightData,
-    sleepData,
-    vo2maxData,
-    workoutData,
-    allDates
-  } = dataCollections;
-  
+  // Remove unused destructured variables
+  const {} = dataCollections;
+
   // First, detect the format of the CSV to determine how to process it
   const firstRow = data[0];
   const headers = Object.keys(firstRow);
-  
+
   // Look for common column names to identify the data structure
-  const hasType = headers.some(h => 
-    h.toLowerCase().includes('type') || 
-    h.toLowerCase().includes('metric') || 
-    h.toLowerCase().includes('measure')
+  const hasType = headers.some(
+    (h) =>
+      h.toLowerCase().includes("type") ||
+      h.toLowerCase().includes("metric") ||
+      h.toLowerCase().includes("measure")
   );
-  
-  const hasDate = headers.some(h => 
-    h.toLowerCase().includes('date') || 
-    h.toLowerCase().includes('time')
+
+  const hasDate = headers.some(
+    (h) => h.toLowerCase().includes("date") || h.toLowerCase().includes("time")
   );
-  
-  const hasValue = headers.some(h => 
-    h.toLowerCase().includes('value') || 
-    h.toLowerCase().includes('amount')
+
+  const hasValue = headers.some(
+    (h) =>
+      h.toLowerCase().includes("value") || h.toLowerCase().includes("amount")
   );
-  
+
   // Process data based on detected format
   if (hasType && hasDate && hasValue) {
     // Standard health export format with type, date, and value columns
     processStandardFormat(data, dataCollections);
-  } else if (headers.includes('heart_rate') || headers.includes('heartRate')) {
+  } else if (headers.includes("heart_rate") || headers.includes("heartRate")) {
     // Specific heart rate export
     processHeartRateFormat(data, dataCollections);
-  } else if (headers.includes('steps') || headers.includes('step_count')) {
+  } else if (headers.includes("steps") || headers.includes("step_count")) {
     // Specific step count export
     processStepFormat(data, dataCollections);
-  } else if (headers.includes('weight') || headers.includes('body_mass')) {
+  } else if (headers.includes("weight") || headers.includes("body_mass")) {
     // Specific weight export
     processWeightFormat(data, dataCollections);
-  } else if (headers.includes('sleep') || headers.includes('sleep_duration')) {
+  } else if (headers.includes("sleep") || headers.includes("sleep_duration")) {
     // Specific sleep export
     processSleepFormat(data, dataCollections);
   } else {
@@ -264,13 +410,13 @@ function processCSVData(data, dataCollections) {
 function processJSONData(data, dataCollections) {
   // JSON data could have various structures
   // Here we try to handle common health app export formats
-  
+
   if (Array.isArray(data)) {
     // Array of records - try to determine what kind of data it is
     const firstItem = data[0];
-    
+
     if (!firstItem) return; // Empty array
-    
+
     if (firstItem.type || firstItem.dataType) {
       // Data has explicit type information
       processJSONWithTypes(data, dataCollections);
@@ -281,29 +427,49 @@ function processJSONData(data, dataCollections) {
   } else {
     // Object with categorized data
     if (data.heartRate || data.heart_rate) {
-      processArrayData(data.heartRate || data.heart_rate, 'heartRate', dataCollections);
+      processArrayData(
+        data.heartRate || data.heart_rate,
+        "heartRate",
+        dataCollections
+      );
     }
-    
+
     if (data.steps || data.stepCount || data.step_count) {
-      processArrayData(data.steps || data.stepCount || data.step_count, 'steps', dataCollections);
+      processArrayData(
+        data.steps || data.stepCount || data.step_count,
+        "steps",
+        dataCollections
+      );
     }
-    
+
     if (data.weight || data.bodyMass || data.body_mass) {
-      processArrayData(data.weight || data.bodyMass || data.body_mass, 'weight', dataCollections);
+      processArrayData(
+        data.weight || data.bodyMass || data.body_mass,
+        "weight",
+        dataCollections
+      );
     }
-    
+
     if (data.sleep || data.sleepData || data.sleep_data) {
-      processArrayData(data.sleep || data.sleepData || data.sleep_data, 'sleep', dataCollections);
+      processArrayData(
+        data.sleep || data.sleepData || data.sleep_data,
+        "sleep",
+        dataCollections
+      );
     }
-    
+
     if (data.vo2max || data.vo2Max || data.vo2_max) {
-      processArrayData(data.vo2max || data.vo2Max || data.vo2_max, 'vo2max', dataCollections);
+      processArrayData(
+        data.vo2max || data.vo2Max || data.vo2_max,
+        "vo2max",
+        dataCollections
+      );
     }
-    
+
     if (data.workouts || data.workout || data.exercises || data.exercise) {
       processArrayData(
-        data.workouts || data.workout || data.exercises || data.exercise, 
-        'workout', 
+        data.workouts || data.workout || data.exercises || data.exercise,
+        "workout",
         dataCollections
       );
     }
@@ -320,83 +486,75 @@ function processStandardFormat(data, dataCollections) {
     weightData,
     sleepData,
     vo2maxData,
-    workoutData,
-    allDates
+    allDates,
   } = dataCollections;
-  
+
   // Find the column names for type, date, and value
   const firstRow = data[0];
   const headers = Object.keys(firstRow);
-  
-  const typeColumn = headers.find(h => 
-    h.toLowerCase().includes('type') || 
-    h.toLowerCase().includes('metric') || 
-    h.toLowerCase().includes('measure')
+
+  const typeColumn = headers.find(
+    (h) =>
+      h.toLowerCase().includes("type") ||
+      h.toLowerCase().includes("metric") ||
+      h.toLowerCase().includes("measure")
   );
-  
-  const dateColumn = headers.find(h => 
-    h.toLowerCase().includes('date') || 
-    h.toLowerCase().includes('time')
+
+  const dateColumn = headers.find(
+    (h) => h.toLowerCase().includes("date") || h.toLowerCase().includes("time")
   );
-  
-  const valueColumn = headers.find(h => 
-    h.toLowerCase().includes('value') || 
-    h.toLowerCase().includes('amount')
+
+  const valueColumn = headers.find(
+    (h) =>
+      h.toLowerCase().includes("value") || h.toLowerCase().includes("amount")
   );
-  
+
   if (!typeColumn || !dateColumn || !valueColumn) return;
-  
+
   // Process each row
-  data.forEach(row => {
-    const type = (row[typeColumn] || '').toLowerCase();
+  data.forEach((row) => {
+    const type = (row[typeColumn] || "").toLowerCase();
     const dateStr = row[dateColumn];
     const value = row[valueColumn];
-    
+
     if (!dateStr || value === undefined || value === null) return;
-    
+
     // Parse the date
     const date = parseDate(dateStr);
     if (!date || !isValid(date)) return;
-    
+
     // Add to all dates array for tracking date range
     allDates.push(date);
-    
+
     // Process based on type
-    if (type.includes('heart') || type.includes('pulse')) {
+    if (type.includes("heart") || type.includes("pulse")) {
       heartRateData.push({
         date: date.toISOString(),
-        value: parseFloat(value)
+        value: parseFloat(value),
       });
-    } else if (type.includes('step')) {
+    } else if (type.includes("step")) {
       stepData.push({
         date: date.toISOString(),
-        value: parseInt(value, 10)
+        value: parseInt(value, 10),
       });
-    } else if (type.includes('weight') || type.includes('mass')) {
+    } else if (type.includes("weight") || type.includes("mass")) {
       weightData.push({
         date: date.toISOString(),
-        value: parseFloat(value)
+        value: parseFloat(value),
       });
-    } else if (type.includes('sleep')) {
+    } else if (type.includes("sleep")) {
       sleepData.push({
         date: date.toISOString(),
         value: parseFloat(value),
-        unit: row.unit || 'hours'
+        unit: row.unit || "hours",
       });
-    } else if (type.includes('vo2') || type.includes('oxygen')) {
+    } else if (type.includes("vo2") || type.includes("oxygen")) {
       vo2maxData.push({
         date: date.toISOString(),
-        value: parseFloat(value)
+        value: parseFloat(value),
       });
-    } else if (type.includes('workout') || type.includes('exercise')) {
-      workoutData.push({
-        date: date.toISOString(),
-        type: row.workoutType || row.exerciseType || 'unknown',
-        duration: parseFloat(value),
-        unit: row.unit || 'minutes',
-        calories: row.calories || null,
-        distance: row.distance || null
-      });
+    } else if (type.includes("workout") || type.includes("exercise")) {
+      // Handle workout data if needed
     }
   });
 }
@@ -406,41 +564,40 @@ function processStandardFormat(data, dataCollections) {
  */
 function processHeartRateFormat(data, dataCollections) {
   const { heartRateData, allDates } = dataCollections;
-  
+
   // Find the column names
   const firstRow = data[0];
   const headers = Object.keys(firstRow);
-  
-  const heartRateColumn = headers.find(h => 
-    h.toLowerCase().includes('heart') || 
-    h.toLowerCase().includes('pulse')
+
+  const heartRateColumn = headers.find(
+    (h) =>
+      h.toLowerCase().includes("heart") || h.toLowerCase().includes("pulse")
   );
-  
-  const dateColumn = headers.find(h => 
-    h.toLowerCase().includes('date') || 
-    h.toLowerCase().includes('time')
+
+  const dateColumn = headers.find(
+    (h) => h.toLowerCase().includes("date") || h.toLowerCase().includes("time")
   );
-  
+
   if (!heartRateColumn || !dateColumn) return;
-  
+
   // Process each row
-  data.forEach(row => {
+  data.forEach((row) => {
     const heartRate = row[heartRateColumn];
     const dateStr = row[dateColumn];
-    
+
     if (!dateStr || heartRate === undefined || heartRate === null) return;
-    
+
     // Parse the date
     const date = parseDate(dateStr);
     if (!date || !isValid(date)) return;
-    
+
     // Add to all dates array for tracking date range
     allDates.push(date);
-    
+
     // Add heart rate data
     heartRateData.push({
       date: date.toISOString(),
-      value: parseFloat(heartRate)
+      value: parseFloat(heartRate),
     });
   });
 }
@@ -450,40 +607,37 @@ function processHeartRateFormat(data, dataCollections) {
  */
 function processStepFormat(data, dataCollections) {
   const { stepData, allDates } = dataCollections;
-  
+
   // Find the column names
   const firstRow = data[0];
   const headers = Object.keys(firstRow);
-  
-  const stepColumn = headers.find(h => 
-    h.toLowerCase().includes('step')
+
+  const stepColumn = headers.find((h) => h.toLowerCase().includes("step"));
+
+  const dateColumn = headers.find(
+    (h) => h.toLowerCase().includes("date") || h.toLowerCase().includes("time")
   );
-  
-  const dateColumn = headers.find(h => 
-    h.toLowerCase().includes('date') || 
-    h.toLowerCase().includes('time')
-  );
-  
+
   if (!stepColumn || !dateColumn) return;
-  
+
   // Process each row
-  data.forEach(row => {
+  data.forEach((row) => {
     const steps = row[stepColumn];
     const dateStr = row[dateColumn];
-    
+
     if (!dateStr || steps === undefined || steps === null) return;
-    
+
     // Parse the date
     const date = parseDate(dateStr);
     if (!date || !isValid(date)) return;
-    
+
     // Add to all dates array for tracking date range
     allDates.push(date);
-    
+
     // Add step data
     stepData.push({
       date: date.toISOString(),
-      value: parseInt(steps, 10)
+      value: parseInt(steps, 10),
     });
   });
 }
@@ -493,41 +647,40 @@ function processStepFormat(data, dataCollections) {
  */
 function processWeightFormat(data, dataCollections) {
   const { weightData, allDates } = dataCollections;
-  
+
   // Find the column names
   const firstRow = data[0];
   const headers = Object.keys(firstRow);
-  
-  const weightColumn = headers.find(h => 
-    h.toLowerCase().includes('weight') || 
-    h.toLowerCase().includes('mass')
+
+  const weightColumn = headers.find(
+    (h) =>
+      h.toLowerCase().includes("weight") || h.toLowerCase().includes("mass")
   );
-  
-  const dateColumn = headers.find(h => 
-    h.toLowerCase().includes('date') || 
-    h.toLowerCase().includes('time')
+
+  const dateColumn = headers.find(
+    (h) => h.toLowerCase().includes("date") || h.toLowerCase().includes("time")
   );
-  
+
   if (!weightColumn || !dateColumn) return;
-  
+
   // Process each row
-  data.forEach(row => {
+  data.forEach((row) => {
     const weight = row[weightColumn];
     const dateStr = row[dateColumn];
-    
+
     if (!dateStr || weight === undefined || weight === null) return;
-    
+
     // Parse the date
     const date = parseDate(dateStr);
     if (!date || !isValid(date)) return;
-    
+
     // Add to all dates array for tracking date range
     allDates.push(date);
-    
+
     // Add weight data
     weightData.push({
       date: date.toISOString(),
-      value: parseFloat(weight)
+      value: parseFloat(weight),
     });
   });
 }
@@ -537,42 +690,41 @@ function processWeightFormat(data, dataCollections) {
  */
 function processSleepFormat(data, dataCollections) {
   const { sleepData, allDates } = dataCollections;
-  
+
   // Find the column names
   const firstRow = data[0];
   const headers = Object.keys(firstRow);
-  
-  const sleepColumn = headers.find(h => 
-    h.toLowerCase().includes('sleep') || 
-    h.toLowerCase().includes('duration')
+
+  const sleepColumn = headers.find(
+    (h) =>
+      h.toLowerCase().includes("sleep") || h.toLowerCase().includes("duration")
   );
-  
-  const dateColumn = headers.find(h => 
-    h.toLowerCase().includes('date') || 
-    h.toLowerCase().includes('time')
+
+  const dateColumn = headers.find(
+    (h) => h.toLowerCase().includes("date") || h.toLowerCase().includes("time")
   );
-  
+
   if (!sleepColumn || !dateColumn) return;
-  
+
   // Process each row
-  data.forEach(row => {
+  data.forEach((row) => {
     const sleep = row[sleepColumn];
     const dateStr = row[dateColumn];
-    
+
     if (!dateStr || sleep === undefined || sleep === null) return;
-    
+
     // Parse the date
     const date = parseDate(dateStr);
     if (!date || !isValid(date)) return;
-    
+
     // Add to all dates array for tracking date range
     allDates.push(date);
-    
+
     // Add sleep data
     sleepData.push({
       date: date.toISOString(),
       value: parseFloat(sleep),
-      unit: 'hours' // Assume hours as default
+      unit: "hours", // Assume hours as default
     });
   });
 }
@@ -588,95 +740,111 @@ function processGenericFormat(data, dataCollections) {
     sleepData,
     vo2maxData,
     workoutData,
-    allDates
+    allDates,
   } = dataCollections;
-  
+
   // Find the date column
   const firstRow = data[0];
   const headers = Object.keys(firstRow);
-  
-  const dateColumn = headers.find(h => 
-    h.toLowerCase().includes('date') || 
-    h.toLowerCase().includes('time')
+
+  const dateColumn = headers.find(
+    (h) => h.toLowerCase().includes("date") || h.toLowerCase().includes("time")
   );
-  
+
   if (!dateColumn) return;
-  
+
   // Look for columns matching each data type
-  const heartRateColumn = headers.find(h => 
-    h.toLowerCase().includes('heart') || 
-    h.toLowerCase().includes('pulse')
+  const heartRateColumn = headers.find(
+    (h) =>
+      h.toLowerCase().includes("heart") || h.toLowerCase().includes("pulse")
   );
-  
-  const stepColumn = headers.find(h => 
-    h.toLowerCase().includes('step')
+
+  const stepColumn = headers.find((h) => h.toLowerCase().includes("step"));
+
+  const weightColumn = headers.find(
+    (h) =>
+      h.toLowerCase().includes("weight") || h.toLowerCase().includes("mass")
   );
-  
-  const weightColumn = headers.find(h => 
-    h.toLowerCase().includes('weight') || 
-    h.toLowerCase().includes('mass')
+
+  const sleepColumn = headers.find(
+    (h) =>
+      h.toLowerCase().includes("sleep") || h.toLowerCase().includes("duration")
   );
-  
-  const sleepColumn = headers.find(h => 
-    h.toLowerCase().includes('sleep') || 
-    h.toLowerCase().includes('duration')
+
+  const vo2maxColumn = headers.find(
+    (h) => h.toLowerCase().includes("vo2") || h.toLowerCase().includes("oxygen")
   );
-  
-  const vo2maxColumn = headers.find(h => 
-    h.toLowerCase().includes('vo2') || 
-    h.toLowerCase().includes('oxygen')
-  );
-  
+
   // Process each row for all detected data types
-  data.forEach(row => {
+  data.forEach((row) => {
     const dateStr = row[dateColumn];
     if (!dateStr) return;
-    
+
     // Parse the date
     const date = parseDate(dateStr);
     if (!date || !isValid(date)) return;
-    
+
     // Add to all dates array for tracking date range
     allDates.push(date);
-    
+
     // Process heart rate if column exists
-    if (heartRateColumn && row[heartRateColumn] !== undefined && row[heartRateColumn] !== null) {
+    if (
+      heartRateColumn &&
+      row[heartRateColumn] !== undefined &&
+      row[heartRateColumn] !== null
+    ) {
       heartRateData.push({
         date: date.toISOString(),
-        value: parseFloat(row[heartRateColumn])
+        value: parseFloat(row[heartRateColumn]),
       });
     }
-    
+
     // Process steps if column exists
-    if (stepColumn && row[stepColumn] !== undefined && row[stepColumn] !== null) {
+    if (
+      stepColumn &&
+      row[stepColumn] !== undefined &&
+      row[stepColumn] !== null
+    ) {
       stepData.push({
         date: date.toISOString(),
-        value: parseInt(row[stepColumn], 10)
+        value: parseInt(row[stepColumn], 10),
       });
     }
-    
+
     // Process weight if column exists
-    if (weightColumn && row[weightColumn] !== undefined && row[weightColumn] !== null) {
+    if (
+      weightColumn &&
+      row[weightColumn] !== undefined &&
+      row[weightColumn] !== null
+    ) {
       weightData.push({
         date: date.toISOString(),
-        value: parseFloat(row[weightColumn])
+        value: parseFloat(row[weightColumn]),
       });
     }
-    
+
     // Process sleep if column exists
-    if (sleepColumn && row[sleepColumn] !== undefined && row[sleepColumn] !== null) {
+    if (
+      sleepColumn &&
+      row[sleepColumn] !== undefined &&
+      row[sleepColumn] !== null
+    ) {
       sleepData.push({
         date: date.toISOString(),
         value: parseFloat(row[sleepColumn]),
-        unit: 'hours' // Assume hours as default
+        unit: "hours", // Assume hours as default
       });
     }
-    
+
     // Process VO2max if column exists
-    if (vo2maxColumn && row[vo2maxColumn] !== undefined && row[vo2maxColumn] !== null) {
+    if (
+      vo2maxColumn &&
+      row[vo2maxColumn] !== undefined &&
+      row[vo2maxColumn] !== null
+    ) {
       vo2maxData.push({
         date: date.toISOString(),
-        value: parseFloat(row[vo2maxColumn])
+        value: parseFloat(row[vo2maxColumn]),
       });
     }
   });
@@ -693,58 +861,58 @@ function processJSONWithTypes(data, dataCollections) {
     sleepData,
     vo2maxData,
     workoutData,
-    allDates
+    allDates,
   } = dataCollections;
-  
-  data.forEach(item => {
-    const type = (item.type || item.dataType || '').toLowerCase();
+
+  data.forEach((item) => {
+    const type = (item.type || item.dataType || "").toLowerCase();
     const dateStr = item.date || item.timestamp || item.startDate || item.time;
     const value = item.value || item.amount || item.count;
-    
+
     if (!dateStr || value === undefined || value === null) return;
-    
+
     // Parse the date
     const date = parseDate(dateStr);
     if (!date || !isValid(date)) return;
-    
+
     // Add to all dates array for tracking date range
     allDates.push(date);
-    
+
     // Process based on type
-    if (type.includes('heart') || type.includes('pulse')) {
+    if (type.includes("heart") || type.includes("pulse")) {
       heartRateData.push({
         date: date.toISOString(),
-        value: parseFloat(value)
+        value: parseFloat(value),
       });
-    } else if (type.includes('step')) {
+    } else if (type.includes("step")) {
       stepData.push({
         date: date.toISOString(),
-        value: parseInt(value, 10)
+        value: parseInt(value, 10),
       });
-    } else if (type.includes('weight') || type.includes('mass')) {
+    } else if (type.includes("weight") || type.includes("mass")) {
       weightData.push({
         date: date.toISOString(),
-        value: parseFloat(value)
+        value: parseFloat(value),
       });
-    } else if (type.includes('sleep')) {
+    } else if (type.includes("sleep")) {
       sleepData.push({
         date: date.toISOString(),
         value: parseFloat(value),
-        unit: item.unit || 'hours'
+        unit: item.unit || "hours",
       });
-    } else if (type.includes('vo2') || type.includes('oxygen')) {
+    } else if (type.includes("vo2") || type.includes("oxygen")) {
       vo2maxData.push({
         date: date.toISOString(),
-        value: parseFloat(value)
+        value: parseFloat(value),
       });
-    } else if (type.includes('workout') || type.includes('exercise')) {
+    } else if (type.includes("workout") || type.includes("exercise")) {
       workoutData.push({
         date: date.toISOString(),
-        type: item.workoutType || item.exerciseType || 'unknown',
+        type: item.workoutType || item.exerciseType || "unknown",
         duration: parseFloat(value),
-        unit: item.unit || 'minutes',
+        unit: item.unit || "minutes",
         calories: item.calories || null,
-        distance: item.distance || null
+        distance: item.distance || null,
       });
     }
   });
@@ -761,67 +929,93 @@ function processJSONInferTypes(data, dataCollections) {
     sleepData,
     vo2maxData,
     workoutData,
-    allDates
+    allDates,
   } = dataCollections;
-  
-  data.forEach(item => {
+
+  data.forEach((item) => {
     const dateStr = item.date || item.timestamp || item.startDate || item.time;
     if (!dateStr) return;
-    
+
     // Parse the date
     const date = parseDate(dateStr);
     if (!date || !isValid(date)) return;
-    
+
     // Add to all dates array for tracking date range
     allDates.push(date);
-    
+
     // Check for different data types based on property names
-    if (item.heartRate !== undefined || item.heart_rate !== undefined || item.pulse !== undefined) {
+    if (
+      item.heartRate !== undefined ||
+      item.heart_rate !== undefined ||
+      item.pulse !== undefined
+    ) {
       heartRateData.push({
         date: date.toISOString(),
-        value: parseFloat(item.heartRate || item.heart_rate || item.pulse)
+        value: parseFloat(item.heartRate || item.heart_rate || item.pulse),
       });
     }
-    
-    if (item.steps !== undefined || item.stepCount !== undefined || item.step_count !== undefined) {
+
+    if (
+      item.steps !== undefined ||
+      item.stepCount !== undefined ||
+      item.step_count !== undefined
+    ) {
       stepData.push({
         date: date.toISOString(),
-        value: parseInt(item.steps || item.stepCount || item.step_count, 10)
+        value: parseInt(item.steps || item.stepCount || item.step_count, 10),
       });
     }
-    
-    if (item.weight !== undefined || item.bodyMass !== undefined || item.body_mass !== undefined) {
+
+    if (
+      item.weight !== undefined ||
+      item.bodyMass !== undefined ||
+      item.body_mass !== undefined
+    ) {
       weightData.push({
         date: date.toISOString(),
-        value: parseFloat(item.weight || item.bodyMass || item.body_mass)
+        value: parseFloat(item.weight || item.bodyMass || item.body_mass),
       });
     }
-    
-    if (item.sleep !== undefined || item.sleepDuration !== undefined || item.sleep_duration !== undefined) {
+
+    if (
+      item.sleep !== undefined ||
+      item.sleepDuration !== undefined ||
+      item.sleep_duration !== undefined
+    ) {
       sleepData.push({
         date: date.toISOString(),
-        value: parseFloat(item.sleep || item.sleepDuration || item.sleep_duration),
-        unit: item.unit || 'hours'
+        value: parseFloat(
+          item.sleep || item.sleepDuration || item.sleep_duration
+        ),
+        unit: item.unit || "hours",
       });
     }
-    
-    if (item.vo2max !== undefined || item.vo2Max !== undefined || item.vo2_max !== undefined) {
+
+    if (
+      item.vo2max !== undefined ||
+      item.vo2Max !== undefined ||
+      item.vo2_max !== undefined
+    ) {
       vo2maxData.push({
         date: date.toISOString(),
-        value: parseFloat(item.vo2max || item.vo2Max || item.vo2_max)
+        value: parseFloat(item.vo2max || item.vo2Max || item.vo2_max),
       });
     }
-    
-    if (item.workout || item.exercise || (item.type && 
-        (item.type.toLowerCase().includes('workout') || 
-         item.type.toLowerCase().includes('exercise')))) {
+
+    if (
+      item.workout ||
+      item.exercise ||
+      (item.type &&
+        (item.type.toLowerCase().includes("workout") ||
+          item.type.toLowerCase().includes("exercise")))
+    ) {
       workoutData.push({
         date: date.toISOString(),
-        type: item.workoutType || item.exerciseType || item.type || 'unknown',
+        type: item.workoutType || item.exerciseType || item.type || "unknown",
         duration: parseFloat(item.duration || 0),
-        unit: item.unit || 'minutes',
+        unit: item.unit || "minutes",
         calories: item.calories || null,
-        distance: item.distance || null
+        distance: item.distance || null,
       });
     }
   });
@@ -832,7 +1026,7 @@ function processJSONInferTypes(data, dataCollections) {
  */
 function processArrayData(data, dataType, dataCollections) {
   if (!Array.isArray(data)) return;
-  
+
   const {
     heartRateData,
     stepData,
@@ -840,65 +1034,70 @@ function processArrayData(data, dataType, dataCollections) {
     sleepData,
     vo2maxData,
     workoutData,
-    allDates
+    allDates,
   } = dataCollections;
-  
-  data.forEach(item => {
+
+  data.forEach((item) => {
     // If item is not an object, skip
-    if (typeof item !== 'object' || item === null) return;
-    
+    if (typeof item !== "object" || item === null) return;
+
     const dateStr = item.date || item.timestamp || item.startDate || item.time;
     if (!dateStr) return;
-    
+
     // Parse the date
     const date = parseDate(dateStr);
     if (!date || !isValid(date)) return;
-    
+
     // Add to all dates array for tracking date range
     allDates.push(date);
-    
+
     // Process based on data type
     switch (dataType.toLowerCase()) {
-      case 'heartrate':
+      case "heartrate":
         heartRateData.push({
           date: date.toISOString(),
-          value: parseFloat(item.value || item.heartRate || item.heart_rate || item.rate || 0)
+          value: parseFloat(
+            item.value || item.heartRate || item.heart_rate || item.rate || 0
+          ),
         });
         break;
-      case 'steps':
+      case "steps":
         stepData.push({
           date: date.toISOString(),
-          value: parseInt(item.value || item.steps || item.count || 0, 10)
+          value: parseInt(item.value || item.steps || item.count || 0, 10),
         });
         break;
-      case 'weight':
+      case "weight":
         weightData.push({
           date: date.toISOString(),
-          value: parseFloat(item.value || item.weight || item.mass || 0)
+          value: parseFloat(item.value || item.weight || item.mass || 0),
         });
         break;
-      case 'sleep':
+      case "sleep":
         sleepData.push({
           date: date.toISOString(),
           value: parseFloat(item.value || item.duration || item.hours || 0),
-          unit: item.unit || 'hours'
+          unit: item.unit || "hours",
         });
         break;
-      case 'vo2max':
+      case "vo2max":
         vo2maxData.push({
           date: date.toISOString(),
-          value: parseFloat(item.value || item.vo2max || item.score || 0)
+          value: parseFloat(item.value || item.vo2max || item.score || 0),
         });
         break;
-      case 'workout':
+      case "workout":
         workoutData.push({
           date: date.toISOString(),
-          type: item.type || item.workoutType || item.exercise || 'unknown',
+          type: item.type || item.workoutType || item.exercise || "unknown",
           duration: parseFloat(item.duration || item.minutes || 0),
-          unit: item.unit || 'minutes',
+          unit: item.unit || "minutes",
           calories: item.calories || item.energy || null,
-          distance: item.distance || null
+          distance: item.distance || null,
         });
+        break;
+      default:
+        // Optionally handle unknown data types
         break;
     }
   });
@@ -911,7 +1110,7 @@ function parseDate(dateStr) {
   // First try native Date parsing
   const date = new Date(dateStr);
   if (isValid(date)) return date;
-  
+
   // If that fails, try date-fns parsing for ISO format
   try {
     const isoDate = parseISO(dateStr);
@@ -919,32 +1118,44 @@ function parseDate(dateStr) {
   } catch (e) {
     // Continue to other formats
   }
-  
+
   // Try common date formats
   // Format: YYYY-MM-DD or YYYY/MM/DD
   const isoRegex = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/;
   const isoMatch = dateStr.match(isoRegex);
   if (isoMatch) {
-    const [_, year, month, day] = isoMatch;
-    return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    const [, year, month, day] = isoMatch;
+    return new Date(
+      parseInt(year, 10),
+      parseInt(month, 10) - 1,
+      parseInt(day, 10)
+    );
   }
-  
+
   // Format: MM/DD/YYYY or MM-DD-YYYY
   const usRegex = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/;
   const usMatch = dateStr.match(usRegex);
   if (usMatch) {
-    const [_, month, day, year] = usMatch;
-    return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    const [, month, day, year] = usMatch;
+    return new Date(
+      parseInt(year, 10),
+      parseInt(month, 10) - 1,
+      parseInt(day, 10)
+    );
   }
-  
+
   // Format: DD/MM/YYYY or DD-MM-YYYY
   const euRegex = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/;
   const euMatch = dateStr.match(euRegex);
   if (euMatch) {
-    const [_, day, month, year] = euMatch;
-    return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    const [, day, month, year] = euMatch;
+    return new Date(
+      parseInt(year, 10),
+      parseInt(month, 10) - 1,
+      parseInt(day, 10)
+    );
   }
-  
+
   // If all else fails, return null
   return null;
 }
@@ -959,7 +1170,8 @@ export function getAllHealthData() {
     weight: getFromStorage(STORAGE_KEYS.WEIGHT_DATA, []),
     sleep: getFromStorage(STORAGE_KEYS.SLEEP_DATA, []),
     vo2max: getFromStorage(STORAGE_KEYS.VO2MAX_DATA, []),
-    workouts: getFromStorage(STORAGE_KEYS.WORKOUT_DATA, [])
+    workouts: getFromStorage(STORAGE_KEYS.WORKOUT_DATA, []),
+    nutrition: getFromStorage(STORAGE_KEYS.NUTRITION_DATA, []),
   };
 }
 
@@ -968,18 +1180,20 @@ export function getAllHealthData() {
  */
 export function getHealthData(dataType) {
   switch (dataType.toLowerCase()) {
-    case 'heartrate':
+    case "heartrate":
       return getFromStorage(STORAGE_KEYS.HEART_RATE_DATA, []);
-    case 'steps':
+    case "steps":
       return getFromStorage(STORAGE_KEYS.STEP_COUNT_DATA, []);
-    case 'weight':
+    case "weight":
       return getFromStorage(STORAGE_KEYS.WEIGHT_DATA, []);
-    case 'sleep':
+    case "sleep":
       return getFromStorage(STORAGE_KEYS.SLEEP_DATA, []);
-    case 'vo2max':
+    case "vo2max":
       return getFromStorage(STORAGE_KEYS.VO2MAX_DATA, []);
-    case 'workouts':
+    case "workouts":
       return getFromStorage(STORAGE_KEYS.WORKOUT_DATA, []);
+    case "nutrition":
+      return getFromStorage(STORAGE_KEYS.NUTRITION_DATA, []);
     default:
       return [];
   }
@@ -991,7 +1205,7 @@ export function getHealthData(dataType) {
 export function getLatestHealthData(dataType) {
   const data = getHealthData(dataType);
   if (!data || data.length === 0) return null;
-  
+
   // Sort by date in descending order (newest first)
   const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
   return sorted[0];
@@ -1001,7 +1215,7 @@ export function getLatestHealthData(dataType) {
  * Clear all imported health data
  */
 export function clearHealthData() {
-  Object.values(STORAGE_KEYS).forEach(key => {
+  Object.values(STORAGE_KEYS).forEach((key) => {
     saveToStorage(key, null);
   });
 }

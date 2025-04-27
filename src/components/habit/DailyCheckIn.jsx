@@ -1,67 +1,72 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Bell } from 'lucide-react';
-import { useHabitData } from '../../hooks/useHabitData';
+import { Check, Bell, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
-const defaultCheckInData = {
-  lastCheckIn: null,
-  streak: 0,
-  history: []
-};
-
-export default function DailyCheckIn() {
-  const { data, loading, updateData } = useHabitData('checkins', defaultCheckInData);
+export default function DailyCheckIn({ checkInData, onCheckIn }) {
   const [showNotification, setShowNotification] = useState(false);
+  const [checkInSuccess, setCheckInSuccess] = useState(null);
   
   // Check if a new day has started since last check-in
   useEffect(() => {
-    if (!loading && data) {
+    if (checkInData) {
       const today = new Date().toDateString();
       
       // If user hasn't checked in today, show notification after delay
-      if (data.lastCheckIn !== today) {
+      if (checkInData.lastCheckIn !== today) {
         const timer = setTimeout(() => {
           setShowNotification(true);
         }, 3000); // Show notification after 3 seconds
         
         return () => clearTimeout(timer);
+      } else {
+        setShowNotification(false);
       }
     }
-  }, [loading, data]);
+  }, [checkInData]);
   
-  const handleCheckIn = () => {
-    if (!data) return;
+  const handleCheckIn = async () => {
+    if (!checkInData) return;
     
     const today = new Date().toDateString();
     
     // Only allow one check-in per day
-    if (data.lastCheckIn !== today) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayString = yesterday.toDateString();
-      
-      // If last check-in was yesterday, increase streak
-      const newStreak = data.lastCheckIn === yesterdayString ? data.streak + 1 : 1;
-      
-      updateData({
-        lastCheckIn: today,
-        streak: newStreak,
-        history: [
-          { date: today, time: new Date().toISOString() },
-          ...data.history
-        ]
-      });
-      
-      setShowNotification(false);
-      
-      // Request notification permission
-      if (Notification.permission !== 'granted') {
-        Notification.requestPermission();
+    if (checkInData.lastCheckIn !== today) {
+      try {
+        const result = await onCheckIn('daily');
+        
+        if (result.success) {
+          setCheckInSuccess({
+            success: true,
+            message: 'Check-in successful!'
+          });
+          
+          setTimeout(() => setCheckInSuccess(null), 3000);
+          setShowNotification(false);
+          
+          // Request notification permission
+          if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+            Notification.requestPermission();
+          }
+        } else {
+          setCheckInSuccess({
+            success: false,
+            message: result.message || 'Failed to check in. Please try again.'
+          });
+          
+          setTimeout(() => setCheckInSuccess(null), 3000);
+        }
+      } catch (error) {
+        setCheckInSuccess({
+          success: false,
+          message: 'An error occurred. Please try again.'
+        });
+        
+        setTimeout(() => setCheckInSuccess(null), 3000);
       }
     }
   };
   
-  if (loading) {
+  if (!checkInData) {
     return <div className="bg-gray-950 border border-cyan-900 rounded-lg p-4 animate-pulse h-48"></div>;
   }
   
@@ -69,7 +74,7 @@ export default function DailyCheckIn() {
     <>
       {/* Fixed notification for daily check-in */}
       {showNotification && (
-        <div className="fixed top-20 right-6 w-72 bg-gray-900 border border-cyan-700 rounded-lg shadow-lg shadow-cyan-900/30 p-4 z-50 animate-slide-in">
+        <div className="fixed bottom-6 right-6 w-72 bg-gray-900 border border-cyan-700 rounded-lg shadow-lg shadow-cyan-900/30 p-4 z-50 animate-slide-in">
           <div className="flex items-start">
             <div className="bg-cyan-900 rounded-full p-2 mr-3">
               <Bell size={16} className="text-cyan-300" />
@@ -91,18 +96,51 @@ export default function DailyCheckIn() {
         </div>
       )}
       
+      {/* Success/error message */}
+      {checkInSuccess && (
+        <div className={`fixed top-20 right-6 w-72 ${
+          checkInSuccess.success 
+            ? 'bg-green-900/30 border-green-700' 
+            : 'bg-red-900/30 border-red-700'
+        } border rounded-lg shadow-lg p-4 z-50 animate-slide-in`}>
+          <div className="flex items-start">
+            <div className={`${
+              checkInSuccess.success ? 'bg-green-900' : 'bg-red-900'
+            } rounded-full p-2 mr-3`}>
+              {checkInSuccess.success ? (
+                <Check size={16} className="text-green-300" />
+              ) : (
+                <AlertTriangle size={16} className="text-red-300" />
+              )}
+            </div>
+            <div>
+              <h4 className={`text-sm font-medium ${
+                checkInSuccess.success ? 'text-green-300' : 'text-red-300'
+              } font-mono`}>
+                {checkInSuccess.success ? 'SUCCESS' : 'ERROR'}
+              </h4>
+              <p className={`text-xs ${
+                checkInSuccess.success ? 'text-green-600' : 'text-red-600'
+              } font-mono mt-1`}>
+                {checkInSuccess.message}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Check-in status area */}
       <div className="bg-gray-950 border border-cyan-800 rounded-lg p-4 flex items-center justify-between">
         <div>
           <h3 className="text-sm font-mono text-cyan-300">DAILY SYNCHRONIZATION</h3>
           <p className="text-xs text-cyan-600 font-mono">
-            {data.lastCheckIn === new Date().toDateString() 
+            {checkInData.lastCheckIn === new Date().toDateString() 
               ? 'SYNCHRONIZED TODAY' 
               : 'SYNCHRONIZATION REQUIRED'}
           </p>
-          {data.lastCheckIn && (
+          {checkInData.lastCheckIn && (
             <p className="text-xs text-cyan-600 font-mono mt-1">
-              Last check-in: {formatDistanceToNow(new Date(data.lastCheckIn))} ago
+              Last check-in: {formatDistanceToNow(new Date(checkInData.lastCheckIn))} ago
             </p>
           )}
         </div>
@@ -110,10 +148,12 @@ export default function DailyCheckIn() {
         <div className="flex items-center">
           <div className="mr-4">
             <span className="text-xs text-cyan-600 font-mono">STREAK</span>
-            <div className="text-xl font-bold text-cyan-300 font-mono">{data.streak}</div>
+            <div className="text-xl font-bold text-cyan-300 font-mono">
+              {checkInData.currentStreak || 0}
+            </div>
           </div>
           
-          {data.lastCheckIn === new Date().toDateString() ? (
+          {checkInData.lastCheckIn === new Date().toDateString() ? (
             <div className="w-10 h-10 bg-cyan-900/30 border border-cyan-700 rounded-full flex items-center justify-center">
               <Check size={18} className="text-cyan-300" />
             </div>

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../components/layout/MainLayout';
 import BiometricModel from '../components/dashboard/BiometricModel';
-import EnhancementMetrics from '../components/dashboard/EnhancementMetrics';
+import EnhancementMetricsPanel from '../components/dashboard/EnhancementMetricsPanel';
 import ProgressionSection from '../components/dashboard/ProgressionSection';
 import NutritionPanel from '../components/dashboard/NutritionPanel';
 import ActivityLog from '../components/dashboard/ActivityLog';
@@ -146,7 +146,7 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <>
-                  <EnhancementMetrics healthData={healthData} />
+                  <EnhancementMetricsPanel healthData={healthData} />
                   <ProgressionSection goals={userGoals} />
                 </>
               )}

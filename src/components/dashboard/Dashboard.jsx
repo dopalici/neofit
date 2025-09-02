@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+// import { useNavigate } from "react-router-dom";
 import ScanlineEffect from "../ui/ScanlineEffect";
 import AIChatbot from "./AIChatbot";
 import BiometricPanel from "./BiometricPanel";
-import EnhancementMetrics from "./EnhancementMetrics";
+import EnhancementMetricsPanel from "./EnhancementMetricsPanel";
 import GoalsPanel from "./GoalsPanel";
 import HabitDashboard from "./HabitDashboard";
 import Header from "./Header";
@@ -11,29 +11,35 @@ import HealthDataDashboard from "./HealthDataDashboard";
 import IntegrationModal from "./IntegrationModal";
 import NutritionPanel from "./NutritionPanel";
 
-export default function Dashboard() {
+export default function Dashboard({ 
+  userData: propsUserData,
+  healthData: propsHealthData,
+  nutritionData: propsNutritionData,
+  habitData: propsHabitData,
+  userGoals: propsUserGoals,
+  connectedApps: propsConnectedApps,
+  isDataFetching: propsIsDataFetching,
+  onCheckIn,
+  onToggleConnection,
+  onRefreshData,
+  onSyncNutrition
+}) {
   const [showIntro, setShowIntro] = useState(true);
   const [activeTab, setActiveTab] = useState("main");
   const [showIntegrationModal, setShowIntegrationModal] = useState(false);
   const [showAIChatbot, setShowAIChatbot] = useState(false);
-  const [isDataFetching, setIsDataFetching] = useState(false);
-  const [connectedApps, setConnectedApps] = useState({
-    appleHealth: false,
-    myFitnessPal: false,
-    strava: false,
-  });
 
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
 
-  // Mock data for demonstration
-  const userData = {
+  // Use props data or fallback to mock data
+  const userData = propsUserData || {
     metrics: {
       symmetry: "96.2",
       potential: "71.8",
     },
   };
 
-  const healthData = {
+  const healthData = propsHealthData || {
     heartRate: {
       lastUpdated: new Date().toLocaleString(),
     },
@@ -48,7 +54,7 @@ export default function Dashboard() {
     },
   };
 
-  const nutritionData = {
+  const nutritionData = propsNutritionData || {
     calories: {
       lastUpdated: new Date().toLocaleString(),
     },
@@ -57,7 +63,7 @@ export default function Dashboard() {
     fat: { consumed: 80 },
   };
 
-  const habitData = {
+  const habitData = propsHabitData || {
     checkInsData: {
       lastCheckIn: new Date().toISOString().split("T")[0],
     },
@@ -66,38 +72,34 @@ export default function Dashboard() {
     },
   };
 
-  const userGoals = [
+  const userGoals = propsUserGoals || [
     { id: 1, title: "Increase VO2 Max", progress: 65 },
     { id: 2, title: "Improve Sleep Quality", progress: 80 },
   ];
 
-  const handleCheckIn = () => {
-    // Mock check-in functionality
+  const connectedApps = propsConnectedApps || {
+    appleHealth: false,
+    myFitnessPal: false,
+    strava: false,
+  };
+
+  const isDataFetching = propsIsDataFetching || false;
+
+  const handleCheckIn = onCheckIn || (() => {
     console.log("Check-in recorded");
-  };
+  });
 
-  const toggleAppConnection = (app) => {
-    setConnectedApps((prev) => ({
-      ...prev,
-      [app]: !prev[app],
-    }));
-  };
+  const toggleAppConnection = onToggleConnection || ((app) => {
+    console.log(`Toggle connection for ${app}`);
+  });
 
-  const refreshAllData = () => {
-    setIsDataFetching(true);
-    // Mock data refresh
-    setTimeout(() => {
-      setIsDataFetching(false);
-    }, 1000);
-  };
+  const refreshAllData = onRefreshData || (() => {
+    console.log("Refresh all data");
+  });
 
-  const syncNutritionData = () => {
-    setIsDataFetching(true);
-    // Mock nutrition sync
-    setTimeout(() => {
-      setIsDataFetching(false);
-    }, 1000);
-  };
+  const syncNutritionData = onSyncNutrition || (() => {
+    console.log("Sync nutrition data");
+  });
 
   return (
     <div className="min-h-screen bg-gray-900 text-cyan-400 relative overflow-hidden">
@@ -312,7 +314,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="lg:col-span-2 space-y-8">
-                  <EnhancementMetrics healthData={healthData} />
+                  <EnhancementMetricsPanel healthData={healthData} />
                   <GoalsPanel goals={userGoals} />
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

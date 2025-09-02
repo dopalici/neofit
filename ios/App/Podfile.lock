@@ -1,7 +1,7 @@
 PODS:
-  - Capacitor (7.2.0):
+  - Capacitor (5.7.8):
     - CapacitorCordova
-  - CapacitorCordova (7.2.0)
+  - CapacitorCordova (5.7.8)
   - CapacitorPluginHealthkit (0.1.0):
     - Capacitor
 
@@ -19,8 +19,8 @@ EXTERNAL SOURCES:
     :path: "../../plugins/capacitor-healthkit"
 
 SPEC CHECKSUMS:
-  Capacitor: 03bc7cbdde6a629a8b910a9d7d78c3cc7ed09ea7
-  CapacitorCordova: 5967b9ba03915ef1d585469d6e31f31dc49be96f
+  Capacitor: 9686e5711b48a1aa84671ede795d0175848abcba
+  CapacitorCordova: 31ab98dca2ddcee051027a1afe7e8c85c82f7297
   CapacitorPluginHealthkit: 4c5f49118c5c8a3c0049ea9601dd93db17a4a418
 
 PODFILE CHECKSUM: 9e6e2f01a6328aaea3c699ee63094b3f9cc02b59

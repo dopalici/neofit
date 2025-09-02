@@ -3,31 +3,31 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@capacitor/cli": "^7.1.0",
-    "@capacitor/core": "^7.1.0",
-    "@capacitor/ios": "^7.2.0",
-    "@react-three/drei": "^9.122.0",
-    "@react-three/fiber": "^8.18.0",
+    "@capacitor/core": "^5.0.0",
+    "@capacitor/ios": "^5.0.0",
+    "@react-three/drei": "^9.92.7",
+    "@react-three/fiber": "^8.15.19",
+    "@testing-library/jest-dom": "^5.16.5",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
     "capacitor-plugin-healthkit": "file:plugins/capacitor-healthkit",
+    "chart.js": "^4.0.0",
     "date-fns": "^4.1.0",
-    "framer-motion": "^12.9.2",
-    "lucide-react": "^0.287.0",
-    "papaparse": "^5.5.2",
+    "framer-motion": "^10.0.0",
+    "lucide-react": "^0.525.0",
+    "papaparse": "^5.5.3",
     "react": "^18.2.0",
-    "react-confetti": "^6.4.0",
+    "react-chartjs-2": "^5.0.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^7.5.2",
-    "react-scripts": "^5.0.1",
-    "recharts": "^2.15.3",
-    "three": "^0.174.0",
-    "three-mesh-bvh": "^0.9.0",
-    "uuid": "^11.1.0",
-    "web-vitals": "^4.2.4"
+    "react-router-dom": "^6.26.1",
+    "react-scripts": "5.0.1",
+    "three": "^0.160.1",
+    "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "start": "react-app-rewired start",
+    "build": "react-app-rewired build",
+    "test": "react-app-rewired test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -47,5 +47,11 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "crypto-browserify": "^3.12.1",
+    "path-browserify": "^1.0.1",
+    "react-app-rewired": "^2.2.1",
+    "stream-browserify": "^3.0.0"
   }
 }

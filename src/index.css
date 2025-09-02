@@ -28,7 +28,7 @@ code {
 }
 
 .animate-scan {
-  animation: scan 2s linear infinite;
+  /* animation: scan 2s linear infinite; */
 }
 
 @keyframes scan {

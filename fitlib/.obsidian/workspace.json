@@ -1,0 +1,256 @@
+{
+  "main": {
+    "id": "9978a934644665fb",
+    "type": "split",
+    "children": [
+      {
+        "id": "ccd32690a9096180",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "7e5c20fa7b9d6d7f",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "A6. Energy Systems (Detailed).md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "A6. Energy Systems (Detailed)"
+            }
+          },
+          {
+            "id": "db1eb474c7e4af80",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "A5. FITT Principle.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "A5. FITT Principle"
+            }
+          }
+        ],
+        "currentTab": 1
+      },
+      {
+        "id": "79fd28b27559fdcb",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "43a4bc9c1c7d8d31",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Q. Key Topic Overviews.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Q. Key Topic Overviews"
+            }
+          },
+          {
+            "id": "6189c31744f799ad",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          }
+        ],
+        "currentTab": 1
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "1a94369f6f4a874c",
+    "type": "split",
+    "children": [
+      {
+        "id": "c836dba4fe28dd23",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "6b54b885d4df1d00",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "64c76c9bc3c85d76",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "f",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "18b45887090e1c45",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "7e4eb4b9a1e11b6b",
+    "type": "split",
+    "children": [
+      {
+        "id": "0efc6c344ce413bf",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "d93e6e2ac5bf967d",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "A5. FITT Principle.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for A5. FITT Principle"
+            }
+          },
+          {
+            "id": "fc313d283443325f",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "ftilib.docx.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from ftilib.docx"
+            }
+          },
+          {
+            "id": "2a8ac37782385b41",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "b9f55e6380413011",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "ftilib.docx.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of ftilib.docx"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false
+    }
+  },
+  "active": "6b54b885d4df1d00",
+  "lastOpenFiles": [
+    "EXL-54 Pec Deck Fly (Machine) 2.md",
+    "A6. Energy Systems (Detailed).md",
+    "A6. Energy Systems (Detailed.md",
+    "Q6. Training Methodologies Overview.md",
+    "EXL-100 Assault Bike  Air Bike.md",
+    "C35. Specialized Nutrition for Performance Demands.md",
+    "fitlib.md",
+    "C27. Nutrition for Endurance Performance (Carb Loading).md",
+    "Q8. Advanced Data Analysis for Self-Quantification.md",
+    "Q. Key Topic Overviews.md",
+    "T1. Exercise Template Structure.md",
+    "Z3. Cultural & Historical Perspectives on Fitness.md",
+    "C26. Nutrition for Fat Loss.md",
+    "A29. Tissue Adaptation to Exercise (Molecular & Cellular).md",
+    "C15. Low-Carb Diets (General).md",
+    "EXL-93 Stationary Bike (Upright).md",
+    "E4 Interval Training (General).md",
+    "G3. Training with Health Limitations Chronic Conditions.md",
+    "EXL-37 Dumbbell Romanian Deadlift (RDL).md",
+    "O2 Measuring Fitness Progress.md",
+    "EXL-92 Elliptical Trainer.md",
+    "E14. Concurrent Training Updated Protocols & Considerations.md",
+    "E. Cardiovascular  Endurance Training.md",
+    "E4. Concurrent Training (Interference Effect).md",
+    "IX-7. Pain Science in Exercise & Rehabilitation.md",
+    "G3. Training with Health Limitations  Chronic Conditions.md",
+    "EXL-67 Cable Triceps Pushdown (Rope",
+    "EXL-36 Dumbbell Lunge (Static/Alternating",
+    "EXL-36 Dumbbell Lunge (Static",
+    "EXL-65 Assisted Pull-up",
+    "G3. Training with Health Limitations ",
+    "C28. Nutrition for Strength",
+    "X9. Gymnastics ",
+    "C33. Anti-Inflammatory Foods",
+    "C22. Supplements with Limited",
+    "E. Cardiovascular ",
+    "Untitled.canvas"
+  ]
+}

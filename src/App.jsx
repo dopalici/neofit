@@ -12,11 +12,10 @@ import {
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import Dashboard from "./components/dashboard/Dashboard";
 import LandingPage from "./components/landing/LandingPage";
+import HealthDataTest from "./components/HealthDataTest";
 
 function App() {
-  const [activeTab, setActiveTab] = useState("main");
-  const [showIntro, setShowIntro] = useState(true);
-  const [showIntegrationModal, setShowIntegrationModal] = useState(false);
+  // const [showIntegrationModal, setShowIntegrationModal] = useState(false);
   const [isDataFetching, setIsDataFetching] = useState(false);
   const [healthData, setHealthData] = useState(null);
   const [nutritionData, setNutritionData] = useState(null);
@@ -84,7 +83,7 @@ function App() {
       loadHabitData();
 
       // Close the modal after successful import and refresh
-      setShowIntegrationModal(false);
+      // setShowIntegrationModal(false);
     } catch (error) {
       console.error("Error refreshing data:", error);
       // Consider showing an error message to the user
@@ -188,8 +187,30 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/landing" element={<LandingPage />} />
+        <Route path="/health-test" element={<HealthDataTest />} />
+        <Route 
+          path="/dashboard" 
+          element={
+            <Dashboard 
+              userData={userData}
+              healthData={healthData}
+              nutritionData={nutritionData}
+              habitData={habitData}
+              userGoals={userGoals}
+              connectedApps={connectedApps}
+              isDataFetching={isDataFetching}
+              onCheckIn={handleCheckIn}
+              onToggleConnection={toggleAppConnection}
+              onRefreshData={refreshAllData}
+              onSyncNutrition={syncNutritionData}
+            />
+          } 
+        />
+        <Route 
+          path="/" 
+          element={<LandingPage />} 
+        />
       </Routes>
     </Router>
   );

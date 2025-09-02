@@ -1,14 +1,9 @@
 import { registerPlugin } from '@capacitor/core';
+import type { HealthKitPlugin } from './definitions';
 
-export interface HealthKitPlugin {
-  isAvailable(): Promise<{ available: boolean }>;
-  requestAuthorization(): Promise<{ authorized: boolean }>;
-  queryHealthData(options: { dataType: string; period: string }): Promise<{ data: any[] }>;
-  querySleepData(options: { period: string }): Promise<{ data: any[] }>;
-  startObservingHealthData(options: { dataType: string }): Promise<void>;
-  stopObservingHealthData(options: { dataType: string }): Promise<void>;
-}
+const HealthKit = registerPlugin<HealthKitPlugin>('HealthKit', {
+  web: () => import('./web').then(m => new m.HealthKitWeb()),
+});
 
-const HealthKit = registerPlugin<HealthKitPlugin>('HealthKit');
-
+export * from './definitions';
 export { HealthKit };

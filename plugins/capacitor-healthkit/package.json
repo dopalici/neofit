@@ -53,5 +53,8 @@
     "android": {
       "src": "android"
     }
+  },
+  "dependencies": {
+    "three": "^0.160.1"
   }
 }

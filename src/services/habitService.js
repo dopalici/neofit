@@ -6,6 +6,11 @@ import {
   calculateActionDifficulty,
   getPersonalizedChallengeProgression
 } from '../utils/habitUtils';
+import { 
+  getPersonalizedRecommendations,
+  searchKnowledge,
+  isKnowledgeBaseInitialized
+} from './knowledgeBaseService';
 
 // ----- DATA MODELS -----
 
@@ -43,6 +48,12 @@ const defaultUserPreferences = {
   goalCategories: [], // Array of strings: ['weight', 'strength', 'endurance', etc.]
   notifications: true,
   hasCompletedOnboarding: false
+};
+
+// Insights data model
+const defaultInsightsData = {
+  lastGenerated: null,
+  insights: [] // Array of {date, type, content, source}
 };
 
 // ----- LOCAL STORAGE OPERATIONS -----
@@ -161,6 +172,14 @@ export function checkInUser(checkInType = 'daily') {
     }
   }
   
+  // Generate knowledge-based insights on check-in
+  if (isKnowledgeBaseInitialized() && checkInType === 'daily') {
+    generateDailyInsights({
+      streak: newStreak,
+      preferences: userPreferences
+    });
+  }
+  
   return {
     success: true,
     message: 'Check-in successful',
@@ -168,6 +187,90 @@ export function checkInUser(checkInType = 'daily') {
     streakData: updatedStreakData,
     reward
   };
+}
+
+// Generate daily insights based on knowledge base and user data
+function generateDailyInsights(userData) {
+  // Only generate insights if it's a new day or we don't have insights yet
+  const insightsData = loadHabitData('insights', defaultInsightsData);
+  const today = new Date().toDateString();
+  
+  if (insightsData.lastGenerated === today) {
+    return insightsData;
+  }
+  
+  // Prepare user data for knowledge base recommendation
+  const userContext = {
+    habitData: {
+      streakData: {
+        currentStreak: userData.streak || 0
+      }
+    }
+  };
+  
+  // Get recommendations based on user preferences
+  if (userData.preferences && userData.preferences.interests) {
+    // Generate recommendations based on user interests
+    let recommendationsPromises = userData.preferences.interests.map(interest => {
+      // Search knowledge base for content related to this interest
+      return searchKnowledge(interest, 1);
+    });
+    
+    // Add more recommendations based on user goals
+    if (userData.preferences.goalCategories) {
+      userData.preferences.goalCategories.forEach(goal => {
+        recommendationsPromises.push(searchKnowledge(goal, 1));
+      });
+    }
+    
+    // Get personalized recommendations
+    const personalizedRecommendations = getPersonalizedRecommendations(userContext, 3);
+    
+    // Combine all recommendations and format as insights
+    const newInsights = personalizedRecommendations.map(rec => ({
+      date: today,
+      type: 'knowledge',
+      content: `${rec.title}: Consider focusing on this area - ${rec.reason}`,
+      source: rec.id
+    }));
+    
+    // Add streak-based insights
+    if (userData.streak >= 5) {
+      newInsights.push({
+        date: today,
+        type: 'streak',
+        content: `You've maintained consistency for ${userData.streak} days. Great job! Research shows that consistency is key to achieving fitness results.`,
+        source: 'streak'
+      });
+    } else if (userData.streak <= 2) {
+      newInsights.push({
+        date: today,
+        type: 'streak',
+        content: `You're in the early stages of habit formation. Studies show it takes 21-66 days to form a lasting habit, so keep going!`,
+        source: 'streak'
+      });
+    }
+    
+    // Update and save insights
+    const updatedInsights = {
+      lastGenerated: today,
+      insights: [
+        ...newInsights,
+        ...insightsData.insights.slice(0, 10) // Keep only the last 10 insights
+      ]
+    };
+    
+    saveHabitData('insights', updatedInsights);
+    return updatedInsights;
+  }
+  
+  return insightsData;
+}
+
+// Get latest insights for the user
+export function getLatestInsights(limit = 3) {
+  const insightsData = loadHabitData('insights', defaultInsightsData);
+  return insightsData.insights.slice(0, limit);
 }
 
 // Claim a reward
@@ -326,6 +429,14 @@ export function updateUserPreferences(preferences) {
   
   saveHabitData('preferences', updatedPreferences);
   
+  // Generate initial knowledge-based insights if knowledge base is available
+  if (isKnowledgeBaseInitialized()) {
+    generateDailyInsights({
+      streak: 0,
+      preferences: updatedPreferences
+    });
+  }
+  
   return {
     success: true,
     message: 'Preferences updated',
@@ -396,6 +507,49 @@ export function logBodyMetrics(metrics) {
   // Log this as a check-in activity (for streak purposes)
   checkInUser('metrics');
   
+  // Generate metrics-specific insights from knowledge base
+  if (isKnowledgeBaseInitialized()) {
+    // Prepare metric-specific query
+    let query = '';
+    let metricType = '';
+    
+    if (metrics.bodyFat !== undefined) {
+      query = `body fat percentage ${metrics.bodyFat < 15 ? 'low' : metrics.bodyFat > 25 ? 'high' : 'normal'}`;
+      metricType = 'bodyFat';
+    } else if (metrics.weight !== undefined) {
+      query = 'weight management';
+      metricType = 'weight';
+    }
+    
+    if (query) {
+      // Search knowledge base for relevant content
+      const results = searchKnowledge(query, 1);
+      
+      if (results.length > 0) {
+        // Store as an insight
+        const insightsData = loadHabitData('insights', defaultInsightsData);
+        const today = new Date().toDateString();
+        
+        const newInsight = {
+          date: today,
+          type: metricType,
+          content: `Based on your metrics: ${results[0].title}`,
+          source: results[0].id
+        };
+        
+        const updatedInsights = {
+          lastGenerated: insightsData.lastGenerated,
+          insights: [
+            newInsight,
+            ...insightsData.insights
+          ]
+        };
+        
+        saveHabitData('insights', updatedInsights);
+      }
+    }
+  }
+  
   return {
     success: true,
     message: 'Metrics logged successfully',
@@ -429,11 +583,71 @@ export function logWorkoutNotes(notes) {
   // Log this as a check-in activity (for streak purposes)
   checkInUser('workout');
   
+  // Generate workout-specific insights if knowledge base is available
+  if (isKnowledgeBaseInitialized()) {
+    // Extract keywords from workout notes to find relevant knowledge base entries
+    const keywords = extractWorkoutKeywords(notes);
+    
+    if (keywords.length > 0) {
+      // Use first keyword for knowledge base search
+      const results = searchKnowledge(keywords[0], 1);
+      
+      if (results.length > 0) {
+        // Store as an insight
+        const insightsData = loadHabitData('insights', defaultInsightsData);
+        const today = new Date().toDateString();
+        
+        const newInsight = {
+          date: today,
+          type: 'workout',
+          content: `Based on your workout: ${results[0].title}`,
+          source: results[0].id
+        };
+        
+        const updatedInsights = {
+          lastGenerated: insightsData.lastGenerated,
+          insights: [
+            newInsight,
+            ...insightsData.insights
+          ]
+        };
+        
+        saveHabitData('insights', updatedInsights);
+      }
+    }
+  }
+  
   return {
     success: true,
     message: 'Notes saved successfully',
     workoutNotes: updatedNotes
   };
+}
+
+// Extract workout keywords from notes
+function extractWorkoutKeywords(notes) {
+  // List of common workout terms to search for
+  const workoutTerms = [
+    'bench press', 'squat', 'deadlift', 'pull-up', 'pushup', 'lunge', 'plank',
+    'cardio', 'hiit', 'strength', 'endurance', 'stretching', 'mobility',
+    'shoulder', 'back', 'leg', 'chest', 'arms', 'core', 'glutes',
+    'running', 'cycling', 'swimming', 'rowing', 'yoga', 'pilates',
+    'warmup', 'cooldown', 'recovery', 'fatigue', 'progress', 'PR', 'personal record',
+    'weight', 'form', 'technique', 'intensity', 'volume', 'reps', 'sets',
+    'pain', 'soreness', 'injury'
+  ];
+  
+  const notesLower = notes.toLowerCase();
+  const foundTerms = [];
+  
+  // Check for workout terms in the notes
+  workoutTerms.forEach(term => {
+    if (notesLower.includes(term)) {
+      foundTerms.push(term);
+    }
+  });
+  
+  return foundTerms;
 }
 
 // Set up reminders for future triggers
@@ -445,6 +659,45 @@ export function setupReminders(reminders) {
     message: 'Reminders set up successfully',
     reminders
   };
+}
+
+// Get knowledge-based recommendations for habit formation
+export function getHabitFormationRecommendations(userData) {
+  if (!isKnowledgeBaseInitialized()) {
+    return [];
+  }
+  
+  // Prepare user context for recommendations
+  const userContext = {
+    habitData: {
+      streakData: userData?.streakData || { currentStreak: 0 }
+    }
+  };
+  
+  // Search for habit-specific content
+  const habitResults = searchKnowledge('habit formation consistency', 3);
+  
+  // Get personalized recommendations
+  const personalizedRecommendations = getPersonalizedRecommendations(userContext, 2);
+  
+  // Combine and format recommendations
+  const recommendations = [
+    ...habitResults.map(result => ({
+      id: result.id,
+      title: result.title,
+      excerpt: result.excerpt,
+      reason: 'Habit formation strategy',
+      type: 'knowledge'
+    })),
+    ...personalizedRecommendations.map(rec => ({
+      id: rec.id,
+      title: rec.title,
+      reason: rec.reason,
+      type: 'personalized'
+    }))
+  ];
+  
+  return recommendations.slice(0, 5);
 }
 
 // Load all habit data for initialization
@@ -461,6 +714,7 @@ export function loadAllHabitData() {
       musclePercentage: []
     }),
     workoutNotes: loadHabitData('workoutNotes', []),
-    reminders: loadHabitData('reminders', [])
+    reminders: loadHabitData('reminders', []),
+    insights: loadHabitData('insights', defaultInsightsData)
   };
 }

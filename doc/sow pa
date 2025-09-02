@@ -1,0 +1,437 @@
+# Pilates By Ang Landing Page Statement of Work
+
+**Creation Date:** 4th August 2025
+
+**Client Information:**
+- Company: Pilates By Ang Ltd
+- Contact: Fabrice Burkhalter
+- Email: fabriceburkhalter@gmail.com
+- Business Type: Fitness and Wellness Services
+- Company Registration: 16374144
+- VAT Number: GB491009109
+- Registered Address: 10 Bolt Court, 3rd Floor, London, United Kingdom, EC4A 3DQ
+- Nature of Business: Fitness facilities and physical well-being activities (SIC: 93130, 96040)
+- Incorporated: 8 April 2025
+
+**Service Provider:**
+- Company: Omniflo Limited
+- Contact: Ruben Sauchelli
+- Email: r.sauchelli@omniflo.ai
+- Business Type: Web Development Agency
+- Company Registration: 15648891
+- VAT Number: N/A
+- Registered Address: Flat 90 281 Kennington Lane, London, England, SE11 5AR
+- Trading Address: Flat 90 281 Kennington Lane, London, England, SE11 5AR
+- Nature of Business: Business and domestic software development (SIC: 62012)
+- Incorporated: 15 April 2024
+
+**Client Overview:** Pilates By Ang is a premium Reformer Pilates studio opening in White City, London. Founded by Angharad Cook and Fabrice Burkhalter, the studio aims to provide high-quality Pilates classes in a welcoming and motivating environment for individuals of all fitness levels.
+
+> **Document Intent**  
+> This document serves as a formal agreement between Omniflo and Pilates By Ang, outlining the scope of work for the Pilates By Ang landing page. It details what will be built, how it will be implemented, technologies and approaches used, timeline, deliverables, project costs, and legal requirements. This SOW will provide Pilates By Ang with a comprehensive understanding of the project's parameters and expected outcomes.
+
+---
+
+## 1. Executive Summary  
+Pilates By Ang requires a professional, visually appealing landing page to establish their online presence before their studio opening in White City. The landing page will serve as the primary digital touchpoint for potential clients, showcasing their premium Reformer Pilates services and facilitating class bookings.
+
+**What we're building:** A responsive, modern landing page that reflects the premium brand identity of Pilates By Ang, provides essential information about their services, and converts visitors into paying customers through an integrated booking system (Mindbody).
+
+**Key deliverables:**
+- Streamlined brand deck establishing core visual identity and messaging guidelines
+- Responsive design optimized for all devices
+- Class information and scheduling with Mindbody integration
+- Online booking integration through Mindbody
+- About section highlighting the founders' story and testimonials
+- FAQ section addressing common questions
+- Contact information and location details
+- High-end visual showcase of studio facilities and equipment
+- Contact form with automated response system
+- Legal pages (Privacy Policy, Terms of Service, Cookie Policy)
+- GDPR compliance implementation
+
+**Timeline:** Phased implementation approach with initial placeholder site in approximately 2 weeks, followed by gradual feature expansion. Brand deck development will take 1.5-2 weeks with core elements completed alongside the placeholder site launch.
+
+## 2. Project Context  
+**Client background:** Pilates By Ang is a new premium Reformer Pilates studio founded by Angharad Cook and Fabrice Burkhalter. Angharad transitioned from a career in fashion and beauty to pursue her passion for Pilates. After moving to White City, she identified a gap in the local wellness scene for personalized, challenging, and community-driven Pilates classes.
+
+**Business need:** As a new business preparing to open in White City, Pilates By Ang needs to establish a strong online presence to attract clients, communicate their unique value proposition, and facilitate class bookings. The landing page will serve as their primary digital marketing tool during the crucial launch phase, initially acting as a placeholder site to capture leads and announce the upcoming launch, then evolving to support full studio operations.
+
+**Target audience:** Primarily women and men aged 25-55, middle to high-income individuals, professionals, and health-conscious individuals who prioritize fitness and wellness. This includes local residents of White City, workers in the area, and visitors to Westfield White City shopping center.
+
+## 3. Objectives & Success Criteria  
+**Primary objective:** Create a visually appealing, user-friendly landing page that effectively communicates Pilates By Ang's unique value proposition, drives class bookings, and builds a community of Pilates enthusiasts in the White City area.
+
+**What success looks like:** 
+- Establishment of a strong, cohesive brand identity through the streamlined brand deck
+- Increased awareness of Pilates By Ang in the White City area
+- Consistent flow of class bookings through the Mindbody integration
+- Positive user feedback on website usability and design
+- Growth in email subscriber list for marketing communications
+- Establishment of a strong brand identity online that matches the in-studio experience
+- Effective lead capture during the pre-launch phase
+
+**Key requirement:** The landing page must effectively communicate the premium, personalized nature of Pilates By Ang's services while making it easy for potential clients to book classes and learn about the benefits of Reformer Pilates. The design must reflect a high-end aesthetic that showcases the studio's premium positioning, guided by the streamlined brand deck.
+
+## 4. Scope Overview
+*This section clearly outlines what features and functionality will be included in your landing page, as well as what we'll save for future development phases. It helps set clear expectations about what you'll get in this project.*
+
+### 4.1 In-Scope
+
+**Brand Deck Development (1.5-2 weeks)**
+*Note: Scope adjusted based on Studyo.studio consultant feedback to focus on essential elements while maintaining strategic value.*
+
+The streamlined brand deck is a focused investment that will establish the core visual language and messaging framework needed for immediate implementation and future growth. This condensed version will:
+- Provide a refreshed, simplified logo update to align with Pilates By Ang's premium positioning
+- Establish a consistent visual identity system that can be applied across key touchpoints
+- Create a concise brand voice and key messaging pillars that resonate with your target audience
+- Provide ready-to-use, basic templates for common touchpoints
+- Ensure all marketing materials maintain a consistent look and feel
+- Save time and costs on future design projects by establishing clear guidelines
+- Provide a professional foundation that elevates the perception of your brand
+
+Key components include:
+- Brand discovery (condensed questionnaire + short call)
+- Logo refinement (minor redesign, not full concept exploration)
+- Core visual identity system (primary + secondary colours, 1-2 typefaces, image style mood board)
+- Concise brand voice and messaging guidelines (tone, 3-4 key phrases)
+- 2-3 application examples across most relevant touchpoints
+- 1-page brand usage guide for internal and external collaborators
+
+**Phase 1: Placeholder Site (2 weeks)**
+- Essential Page Components:
+  - Hero section with compelling headline and call-to-action
+  - About section featuring founders' story
+  - Simple services overview
+  - Email signup form for lead capture
+  - Contact form with automated response
+  - Contact information and studio location
+  - "Coming Soon" messaging for studio launch
+  - Legal pages (Privacy Policy, Terms of Service, Cookie Policy)
+- Core Features:
+  - Mobile-responsive design
+  - Email newsletter signup form
+  - SEO optimization for local search visibility
+  - Analytics implementation
+  - GDPR compliance implementation
+  - Security measures (bot protection, rate limiting)
+
+**Phase 2: Full Site Implementation (Gradual rollout)**
+- Enhanced Page Components:
+  - Expanded about section with client testimonials
+  - Detailed services section with class types (group, private, pre/post-natal)
+  - Equipment and studio facilities showcase with high-quality imagery
+  - FAQ section addressing common questions about Reformer Pilates
+  - Class schedule and pricing information (via Mindbody integration)
+  - Footer with social media links and legal information
+- Advanced Features:
+  - Integration with Mindbody for class reservations and package purchases
+  - Contact form for inquiries (feeding into Mindbody CRM)
+  - Google Maps integration for studio location
+
+**Design & Development:**
+- Custom design reflecting Pilates By Ang's premium brand identity (based on streamlined brand deck)
+- High-end aesthetic showcasing premium positioning
+- SEO optimization for local search visibility
+- Fast loading speeds and performance optimization
+- Analytics implementation for tracking visitor behavior
+- Cross-browser compatibility testing
+- Security implementation
+- Accessibility compliance (WCAG 2.1 AA standards)
+
+### 4.2 Out of Scope
+**Future Development Potential**
+The following features are not included in this MVP but can be developed in future phases as the business evolves:
+
+- Blog section with content management system (Previously quoted at £450)
+- Full e-commerce functionality for merchandise sales
+- Member portal with account management
+- Online video classes or tutorials
+
+Each of these features can be developed in separate Statements of Work upon request, allowing the platform to grow alongside Pilates By Ang's business needs.
+
+## 5. Technical Stack  
+*We've carefully selected modern, reliable technologies that will make your site fast, secure, and easy to maintain. These tools are industry standards that ensure your site will work smoothly across all devices and browsers.*
+
+**Frontend:** React with Next.js framework, Tailwind CSS for styling
+
+**Backend:** Node.js with Express for API integration with Mindbody
+
+**Hosting:** Vercel for fast deployment, performance, and edge security
+
+**Analytics:** PostHog for comprehensive user behavior tracking and insights
+
+**Security:**
+- Vercel Bot Protection
+- Rate limiting on form submissions
+- Vercel Edge Firewall
+- HTTPS encryption
+- Regular security audits
+- Data encryption for sensitive information
+
+**Scalability & Future Integration**
+This technical stack was chosen for its scalability and ease of future feature integration. The architecture allows for seamless addition of new functionality as business requirements evolve, particularly for deeper Mindbody integration in Phase Two.
+
+## 6. Design & Development Approach  
+*This section explains how we'll work together throughout the project. We'll keep you involved at every step, from initial design concepts to final launch, ensuring the end result matches your vision perfectly.*
+
+**Brand Development Process:**
+*Note: Process streamlined based on Studyo.studio consultant feedback to focus on essential elements while maintaining strategic value.*
+
+The streamlined brand deck is a focused deliverable that will establish the foundation for all design work. It will significantly streamline future design processes, create consistency across key touchpoints, and ensure your brand is properly represented in the market. We'll collaborate with Studyo.studio Limited, a UK-based design agency, to create a cohesive brand identity:
+
+1. Brand discovery (condensed questionnaire + short call)
+2. Market research and competitive analysis
+3. Development of brand strategy and positioning
+4. Logo refinement (minor redesign, not full concept exploration)
+5. Creation of core visual identity elements (primary + secondary colours, 1-2 typefaces, image style mood board)
+6. Establishment of concise brand voice and key messaging pillars (tone, 3-4 key phrases)
+7. Development of 2-3 application examples across most relevant touchpoints
+8. Creation of 1-page brand usage guide
+9. Presentation of streamlined brand deck
+10. Refinement based on feedback
+11. Finalization of brand assets and guidelines
+
+The core elements of the streamlined brand deck will be completed alongside the placeholder site launch, with the complete document delivered within 1.5-2 weeks. This approach allows us to implement initial branding elements quickly while maintaining strategic focus.
+
+**Benefits of the Streamlined Brand Deck:**
+- Creates a unified brand presence across key touchpoints
+- Provides a clear roadmap for immediate marketing materials
+- Ensures consistency in how your brand is presented to the world
+- Saves time and money on future design work by establishing clear guidelines
+- Makes onboarding new team members or agencies more efficient
+- Elevates the perceived value of your business through professional branding
+- Helps differentiate your studio from competitors
+- Creates recognition and memorability in a crowded market
+
+**Website Design Process:** 
+With the approved streamlined brand deck as our foundation, the website design process will be streamlined and aligned with your established brand identity:
+
+1. Creation of website branding sample based on brand guidelines
+2. Development of visual design concepts
+3. Client review and feedback cycles
+4. Finalization of design assets
+5. Design system implementation
+
+**Development approach:** 
+We'll use an agile development methodology with a phased approach:
+
+**Phase 1 (2 weeks):**
+1. Initial brand discovery and core brand elements development
+2. Setup of development environment and project architecture
+3. Implementation of core placeholder site functionality
+4. Testing across devices and browsers
+5. Launch of placeholder site
+
+**Phase 2 (Gradual implementation):**
+1. Collection and integration of new content (images, videos, testimonials)
+2. Mindbody integration for class bookings
+3. Expanded feature development
+4. Ongoing testing and refinement
+5. Incremental feature launches
+
+**Client involvement:** 
+Your feedback is crucial to the success of this project. We'll involve you at key decision points:
+1. Initial kickoff meeting to align on goals and vision
+2. Brand discovery questionnaire completion and short call
+3. Review and approval of streamlined brand deck and design concepts
+4. Weekly progress updates via email
+5. Content collection coordination for Phase 2
+6. Review sessions during development
+7. Feature approval before launches
+
+**Foundation for Growth**
+This approach ensures the foundation is solid while maintaining flexibility for future enhancements. By establishing a focused brand identity first through the streamlined brand deck, we create a consistent visual language and messaging framework that will guide all future marketing efforts and digital presence. The phased implementation allows for quick market presence while gradually expanding functionality as the studio prepares to open.
+
+## 7. Content Strategy  
+*Here we outline who's responsible for providing what content, and how we'll maintain your brand's voice and style. This ensures your message stays consistent and resonates with your target audience.*
+
+**Content you provide:** 
+- Studio photos and team images
+- Founder bios and story
+- Class descriptions and pricing information
+- FAQ content
+- Studio policies and booking information
+- Initial client testimonials
+- Mindbody account access
+
+**Content we'll create:** 
+- Website copy based on your provided information and streamlined brand deck guidelines
+- SEO-optimized headlines and descriptions
+- Call-to-action text
+- Meta descriptions and SEO elements
+- Brand messaging guidelines as part of the streamlined brand deck
+- Content structure and information architecture
+- Legal pages (Privacy Policy, Terms of Service, Cookie Policy)
+- GDPR compliance documentation
+
+**Tone:** Professional yet approachable, inspiring, and community-focused. The brand voice will be fully defined in the streamlined brand deck and will reflect the founders' personal journey and passion for Pilates while emphasizing the premium, results-driven nature of the studio. Potential taglines include "Reinventing Pilates. Inspiring Challenge. Redefining Results."
+
+**Content Evolution**
+Content structure is designed to be easily updatable and expandable as new programs or features are added.
+
+**Phase 1 to Phase 2 Content Transition:**
+- Phase 1 will focus on essential brand messaging and lead capture
+- As studio preparations advance, we'll gradually incorporate:
+  - Professional photography of the studio space and equipment
+  - Team member profiles and credentials
+  - Client testimonials and success stories
+  - Class descriptions and schedules
+
+## 8. Analytics & Tracking  
+*We'll set up comprehensive tracking to help you understand how visitors interact with your site. This includes monitoring important actions like form submissions, button clicks, and overall user engagement.*
+
+**Basic analytics:** 
+- PostHog implementation for comprehensive user behavior tracking
+- Session recordings to understand user behavior
+- Feature flags for A/B testing
+- Funnel analysis for conversion optimization
+- Heatmaps for engagement insights
+- User behavior tracking (page views, time on site, bounce rate)
+- Device and traffic source reporting
+- Demographic information (where available)
+- Site speed and performance monitoring
+- Direct client access to the PostHog analytics dashboard
+
+**Goal tracking:** 
+- Form submissions (contact and newsletter signup)
+- Booking button clicks
+- Class schedule views
+- Pricing page engagement
+- Conversion path analysis
+
+
+**Analytics Scalability**
+Analytics implementation is structured to accommodate additional tracking requirements as new features are added in future phases. Advanced analytics features can be implemented upon request, particularly as we move into Phase Two with expanded functionality.
+
+## 9. Timeline & Milestones  
+*This section provides a clear roadmap of when each part of your project will be completed. We've broken it down into phases and specific milestones so you know exactly what to expect and when.*
+
+**Brand Deck Development (1.5-2 weeks)**
+*Note: Timeline adjusted based on Studyo.studio consultant feedback to focus on essential elements.*
+
+- Week 1:
+  - Brand discovery (condensed questionnaire + short call)
+  - Market research and competitive analysis
+  - Core brand elements development (logo refinement, initial color palette, typography)
+  - Initial brand strategy
+- Week 2:
+  - Refinement of visual identity system
+  - Development of concise brand voice and key messaging pillars
+  - Creation of 2-3 application examples
+  - Finalization of streamlined brand deck
+
+**Phase 1: Placeholder Site (2 weeks)**
+- Week 1:
+  - Project kickoff and discovery
+  - Brand discovery questionnaire and short call
+  - Begin core brand elements development
+- Week 2:
+  - Initial brand elements approval
+  - Begin placeholder site design
+  - Setup development environment
+  - Finalize placeholder site design and development
+  - Testing and quality assurance
+  - Launch placeholder site
+
+**Phase 2: Gradual Implementation (Timeline based on content availability)**
+- Initial Enhancement (1-2 weeks after Phase 1):
+  - Integration of additional content as it becomes available
+- Mindbody Integration (2-3 weeks after studio setup in Mindbody):
+  - Class schedule and booking functionality
+  - CRM integration
+- Full Feature Completion (Ongoing):
+  - Additional testimonials and content integration
+  - Performance optimization
+
+**Key milestones:**
+- Initial brand elements approval (End of Week 1)
+- Placeholder site launch (End of Week 2)
+- Complete streamlined brand deck delivery (Week 2)
+- Mindbody integration completion (Based on studio setup timeline)
+- Full site completion (Based on content availability)
+
+**Future Development Timeline**
+*Note: Future development phases and additional features will be discussed and planned after the successful completion of the current scope. These enhancements will be grouped into logical feature sets and addressed through separate Statements of Work (SOWs). This approach ensures we can properly evaluate the performance of the initial implementation and make data-driven decisions about future enhancements.*
+
+## 10. Budget & Quotation  
+**Project cost breakdown:**
+
+| Category | Description | Amount |
+|----------|-------------|---------|
+| Brand Deck Development | Streamlined brand identity and guidelines | £700 |
+| Website Design | Design of responsive website based on brand deck | £900 |
+| Website Development | Development and implementation of responsive landing page | £900 |
+| Mindbody Integration | Setup and configuration of booking system integration | £500 |
+| SEO & Analytics | Implementation of SEO best practices and analytics tracking | £400 |
+| Legal & Compliance | GDPR compliance, privacy policy, terms of service, cookie settings | £350 |
+| **Subtotal** | | **£3,750** |
+| Friends & Family Discount | Special rate for Pilates By Ang | -£500 |
+| **Total Project Cost** | | **£3,250** |
+
+*Note: Brand deck budget adjusted from £1,000 to £700 based on Studyo.studio consultant feedback to reflect streamlined scope and reduced deliverables. Blog CMS removed from current scope and moved to future development.*
+
+**Payment terms:**
+- 50% deposit upon project start
+- 50% upon successful launch
+- All prices are in GBP
+- **VAT Note:** As Omniflo Limited is not VAT registered, no VAT will be charged on invoices. Prices shown are the final amounts payable.
+
+**Hosting & Infrastructure:**
+- Hosting costs begin immediately after website goes live and client approval
+- Annual hosting fee: £70/year (charged from launch date)
+- *Note: While the website content and design belong to Pilates By Ang, hosting is a mandatory technical requirement for any website to be accessible on the internet. This fee covers server costs, basic infrastructure maintenance, and ensures continuous website availability.*
+
+**Maintenance & Support:**
+- 3-month complimentary maintenance period after launch
+- During this period, we will accommodate:
+  - Minor text and content updates
+  - Simple layout adjustments
+  - Bug fixes and performance issues
+  - Analytics setup and review
+  - Branding updates as Pilates By Ang evolves
+
+*Note: Both maintenance fees and infrastructure costs will be reviewed if site traffic or feature usage significantly exceeds initial expectations. This includes analytics costs which scale with traffic volume. Regular reviews will be conducted to ensure optimal performance and cost efficiency as your business grows.*
+
+## 11. Legal & Contractual Summary  
+**Ownership & Rights:**
+- Pilates By Ang retains full ownership of all content, branding, and intellectual property
+- Omniflo retains rights to the underlying code structure and technical implementation
+- Both parties agree to maintain confidentiality of business information
+
+**Payment & Deliverables:**
+- 50% deposit required to commence work
+- Final 50% due upon successful launch and client approval
+- All deliverables must be approved by Pilates By Ang before final payment
+- Payment terms: 14 days from invoice date
+
+**Warranty & Support:**
+- 90-day warranty period for bug fixes and technical issues
+- Free maintenance for first 3 months post-launch
+- Hosting renewal at £70/year 
+
+**Compliance & Security:**
+- GDPR-compliant data collection and storage
+- Cookie consent management system
+- Secure data transmission (HTTPS)
+- Accessibility compliance with WCAG 2.1 AA standards
+- Vercel Bot Protection and Edge Firewall implementation
+- Rate limiting on form submissions to prevent abuse
+- Regular security updates and monitoring
+
+**Termination & Changes:**
+- Either party may terminate with 30 days written notice
+- Unused deposit will be refunded if termination occurs before development starts
+- Scope changes will be documented and may incur additional costs
+- Both parties must agree to any significant scope modifications
+
+**Liability:**
+- Omniflo's liability limited to the total project cost
+- Pilates By Ang responsible for content accuracy and legal compliance
+
+**Agreement:**
+- This SOW becomes binding upon both parties' written acceptance
+- Any disputes will be resolved through good-faith negotiation
+- English law governs this agreement
+
+*Note: This SOW serves as our agreement. We'll keep it simple and straightforward while ensuring both parties are protected.* 

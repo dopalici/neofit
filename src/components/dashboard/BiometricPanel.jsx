@@ -5,40 +5,43 @@ export default function BiometricPanel({ userData, healthData }) {
   const [currentAnimation, setCurrentAnimation] = useState('idle');
   const [animationInterval, setAnimationInterval] = useState(null);
   
-  // Animation sequence that cycles through available animations
+  // Animation sequence that cycles through available animations - DISABLED
   useEffect(() => {
-    // Clear existing interval if there is one
-    if (animationInterval) {
-      clearInterval(animationInterval);
-    }
+    // Set to idle animation only
+    setCurrentAnimation('idle');
     
-    // Define available animations
-    const animations = ['idle', 'squat', 'pushup', 'jumpingJack', 'plank', 'situp'];
-    let currentIndex = 0;
+    // // Clear existing interval if there is one
+    // if (animationInterval) {
+    //   clearInterval(animationInterval);
+    // }
     
-    // Set initial animation
-    setCurrentAnimation(animations[currentIndex]);
+    // // Define available animations
+    // const animations = ['idle', 'squat', 'pushup', 'jumpingJack', 'plank', 'situp'];
+    // let currentIndex = 0;
     
-    // Create new interval to cycle through animations
-    const interval = setInterval(() => {
-      // Move to next animation
-      currentIndex = (currentIndex + 1) % animations.length;
+    // // Set initial animation
+    // setCurrentAnimation(animations[currentIndex]);
+    
+    // // Create new interval to cycle through animations
+    // const interval = setInterval(() => {
+    //   // Move to next animation
+    //   currentIndex = (currentIndex + 1) % animations.length;
       
-      // First set to idle to reset position, then after a short delay set to next animation
-      setCurrentAnimation('idle');
+    //   // First set to idle to reset position, then after a short delay set to next animation
+    //   setCurrentAnimation('idle');
       
-      setTimeout(() => {
-        setCurrentAnimation(animations[currentIndex]);
-      }, 500);
+    //   setTimeout(() => {
+    //     setCurrentAnimation(animations[currentIndex]);
+    //   }, 500);
       
-    }, 15000); // Change animation every 15 seconds (increased for better viewing)
+    // }, 15000); // Change animation every 15 seconds (increased for better viewing)
     
-    setAnimationInterval(interval);
+    // setAnimationInterval(interval);
     
-    // Cleanup interval on component unmount
-    return () => {
-      clearInterval(interval);
-    };
+    // // Cleanup interval on component unmount
+    // return () => {
+    //   clearInterval(interval);
+    // };
   }, []);
 
   return (

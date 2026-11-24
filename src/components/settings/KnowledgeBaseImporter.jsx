@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
-import { 
-  storeKnowledgeBase, 
-  initializeFromFiles,
-  isKnowledgeBaseInitialized 
-} from '../../services/knowledgeBaseService';
+import { isKnowledgeBaseInitialized } from '../../services/knowledgeBaseService';
 import { 
   initializeKnowledgeBase, 
   initializeKnowledgeBaseFromFiles 
@@ -12,7 +8,7 @@ import {
 export default function KnowledgeBaseImporter() {
   const [isLoading, setIsLoading] = useState(false);
   const [importMethod, setImportMethod] = useState('file'); // 'file' or 'directory'
-  const [directoryPath, setDirectoryPath] = useState('/Users/enesozkan/neofit/fitlib');
+  const [directoryPath, setDirectoryPath] = useState('');
   const [importStatus, setImportStatus] = useState({
     isInitialized: isKnowledgeBaseInitialized(),
     message: '',

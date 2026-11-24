@@ -358,9 +358,6 @@ function processXMLData(data, dataCollections) {
  * Process CSV data and extract health metrics
  */
 function processCSVData(data, dataCollections) {
-  // Remove unused destructured variables
-  const {} = dataCollections;
-
   // First, detect the format of the CSV to determine how to process it
   const firstRow = data[0];
   const headers = Object.keys(firstRow);
@@ -739,7 +736,6 @@ function processGenericFormat(data, dataCollections) {
     weightData,
     sleepData,
     vo2maxData,
-    workoutData,
     allDates,
   } = dataCollections;
 

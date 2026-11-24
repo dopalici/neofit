@@ -3,45 +3,9 @@ import AnimatedBiometricModel from '../3d/AnimatedBiometricModel';
 
 export default function BiometricPanel({ userData, healthData }) {
   const [currentAnimation, setCurrentAnimation] = useState('idle');
-  const [animationInterval, setAnimationInterval] = useState(null);
-  
-  // Animation sequence that cycles through available animations - DISABLED
+
   useEffect(() => {
-    // Set to idle animation only
     setCurrentAnimation('idle');
-    
-    // // Clear existing interval if there is one
-    // if (animationInterval) {
-    //   clearInterval(animationInterval);
-    // }
-    
-    // // Define available animations
-    // const animations = ['idle', 'squat', 'pushup', 'jumpingJack', 'plank', 'situp'];
-    // let currentIndex = 0;
-    
-    // // Set initial animation
-    // setCurrentAnimation(animations[currentIndex]);
-    
-    // // Create new interval to cycle through animations
-    // const interval = setInterval(() => {
-    //   // Move to next animation
-    //   currentIndex = (currentIndex + 1) % animations.length;
-      
-    //   // First set to idle to reset position, then after a short delay set to next animation
-    //   setCurrentAnimation('idle');
-      
-    //   setTimeout(() => {
-    //     setCurrentAnimation(animations[currentIndex]);
-    //   }, 500);
-      
-    // }, 15000); // Change animation every 15 seconds (increased for better viewing)
-    
-    // setAnimationInterval(interval);
-    
-    // // Cleanup interval on component unmount
-    // return () => {
-    //   clearInterval(interval);
-    // };
   }, []);
 
   return (
@@ -50,9 +14,20 @@ export default function BiometricPanel({ userData, healthData }) {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-mono text-cyan-300">BIOMETRIC IMPRINT</h2>
           <div className="flex items-center">
-            <span className="text-xs text-cyan-600 font-mono mr-2">APPLE HEALTH</span>
-            <div className="h-4 w-4 bg-gray-800 rounded-full flex items-center justify-center" title="Apple Health Connected">
-              <div className="h-2 w-2 rounded-full bg-green-500"></div>
+            <span className="text-xs text-cyan-600 font-mono mr-2">
+              {healthData?.source && healthData.source !== 'none'
+                ? healthData.source.toUpperCase()
+                : 'NO SOURCE'}
+            </span>
+            <div
+              className="h-4 w-4 bg-gray-800 rounded-full flex items-center justify-center"
+              title={healthData?.hasData ? `Connected: ${healthData.source}` : 'No health data synced'}
+            >
+              <div
+                className={`h-2 w-2 rounded-full ${
+                  healthData?.hasData ? 'bg-green-500' : 'bg-gray-500'
+                }`}
+              ></div>
             </div>
           </div>
         </div>
@@ -73,25 +48,43 @@ export default function BiometricPanel({ userData, healthData }) {
           <div className="bg-gray-950 border border-cyan-900 p-4 rounded">
             <p className="text-xs text-cyan-600 font-mono mb-1">WEIGHT STATUS</p>
             <div className="flex items-center justify-between">
-              <p className="text-xl font-bold text-cyan-300 font-mono">{healthData?.weight?.current || '78.3'} kg</p>
-              <div className="text-xs text-green-500 font-mono flex items-center">
-                <span className="mr-1">-0.4kg</span>
-              </div>
+              <p className="text-xl font-bold text-cyan-300 font-mono">
+                {healthData?.weight?.current !== null && healthData?.weight?.current !== undefined
+                  ? `${Number(healthData.weight.current).toFixed(1)} kg`
+                  : '--'}
+              </p>
+              {healthData?.weight?.trend !== null && healthData?.weight?.trend !== undefined && (
+                <div className="text-xs text-green-500 font-mono flex items-center">
+                  <span className="mr-1">
+                    {healthData.weight.trend > 0 ? `+${healthData.weight.trend}` : healthData.weight.trend}kg
+                  </span>
+                </div>
+              )}
             </div>
             <p className="text-xs text-cyan-600 font-mono mt-1">
-              LAST MEASURED: {healthData?.weight?.lastUpdated || 'TODAY 06:21'}
+              {healthData?.weight?.lastUpdated
+                ? `LAST MEASURED: ${healthData.weight.lastUpdated}`
+                : 'NO MEASUREMENTS YET'}
             </p>
           </div>
           <div className="bg-gray-950 border border-cyan-900 p-4 rounded">
-            <p className="text-xs text-cyan-600 font-mono mb-1">MUSCULAR DENSITY</p>
+            <p className="text-xs text-cyan-600 font-mono mb-1">RECOVERY INDEX</p>
             <div className="flex items-center justify-between">
-              <p className="text-xl font-bold text-cyan-300 font-mono">42.8%</p>
-              <div className="text-xs text-green-500 font-mono flex items-center">
-                <span className="mr-1">+0.8%</span>
-              </div>
+              <p className="text-xl font-bold text-cyan-300 font-mono">
+                {userData?.metrics?.recovery !== null && userData?.metrics?.recovery !== undefined
+                  ? `${userData.metrics.recovery}%`
+                  : '--'}
+              </p>
+              {userData?.metrics?.efficiency !== null && userData?.metrics?.efficiency !== undefined && (
+                <div className="text-xs text-cyan-400 font-mono flex items-center">
+                  <span>EFF {userData.metrics.efficiency}%</span>
+                </div>
+              )}
             </div>
             <p className="text-xs text-cyan-600 font-mono mt-1">
-              TRENDING POSITIVE
+              {userData?.metrics?.recovery !== null && userData?.metrics?.recovery !== undefined
+                ? 'HRV & SLEEP DERIVED'
+                : 'SYNC SLEEP OR HRV'}
             </p>
           </div>
         </div>

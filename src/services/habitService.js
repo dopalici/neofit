@@ -3,7 +3,6 @@ import {
   generateTriggers, 
   getVariableReward, 
   getInvestmentOpportunities, 
-  calculateActionDifficulty,
   getPersonalizedChallengeProgression
 } from '../utils/habitUtils';
 import { 

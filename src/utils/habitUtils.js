@@ -9,8 +9,6 @@ import { format, differenceInDays, isSameDay, isToday, subDays } from 'date-fns'
 
 // Generate external trigger notifications based on user's usage patterns
 export function generateTriggers(checkInHistory, lastActivity) {
-  const today = new Date();
-  
   // If user has no check-in history or hasn't been active today
   if (!checkInHistory || checkInHistory.length === 0 || !isActive(lastActivity)) {
     return {
@@ -50,7 +48,6 @@ function analyzeUserPatterns(checkInHistory) {
   
   // Calculate streak
   let currentStreak = 0;
-  let i = 0;
   const sortedHistory = [...checkInHistory].sort((a, b) => 
     new Date(b.date || b.time) - new Date(a.date || a.time)
   );

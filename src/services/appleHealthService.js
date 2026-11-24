@@ -5,128 +5,78 @@
 
 import { Capacitor } from '@capacitor/core';
 
-// Import the actual HealthKit plugin
-let HealthKit;
-if (Capacitor.isNativePlatform()) {
-  // Dynamic import for native platform
-  try {
-    import('capacitor-plugin-healthkit').then(module => {
-      HealthKit = module.HealthKit;
-    }).catch(error => {
-      console.warn('HealthKit plugin not available:', error);
-      HealthKit = createMockHealthKit();
-    });
-  } catch (error) {
-    console.warn('HealthKit plugin import failed:', error);
-    HealthKit = createMockHealthKit();
-  }
-} else {
-  // Mock for web development with sample data
-  HealthKit = createMockHealthKit();
-}
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-function createMockHealthKit() {
-  return {
-    isAvailable: () => Promise.resolve({ available: false }),
-    requestAuthorization: () => Promise.resolve({ authorized: false }),
-    queryHealthData: (params) => {
-      // Return mock data based on data type
-      const mockData = generateMockHealthData(params?.dataType, params?.period);
-      return Promise.resolve({ data: mockData });
-    },
-    queryWorkouts: () => Promise.resolve({ 
-      data: generateMockWorkouts() 
-    }),
-    querySleepData: () => Promise.resolve({ 
-      data: generateMockSleepData() 
-    })
-  };
+// Safe web fallback when not running on iOS native platform
+const webHealthKitStub = {
+  isAvailable: () => Promise.resolve({ available: false }),
+  requestAuthorization: () => Promise.resolve({ authorized: false }),
+  queryHealthData: () => Promise.resolve({ data: [] }),
+  queryWorkouts: () => Promise.resolve({ data: [] }),
+  querySleepData: () => Promise.resolve({ data: [] }),
+  clearCache: () => Promise.resolve(),
+  startObservingHealthData: () => Promise.resolve(),
+  stopObservingHealthData: () => Promise.resolve(),
+};
+
+let HealthKit = webHealthKitStub;
+let pluginLoadPromise = null;
+
+/**
+ * Lazily and safely resolve the native Capacitor HealthKit plugin.
+ * Guarantees native calls never race against module loading.
+ */
+async function getHealthKit() {
+  if (!Capacitor.isNativePlatform()) {
+    return webHealthKitStub;
+  }
+
+  if (HealthKit !== webHealthKitStub) {
+    return HealthKit;
+  }
+
+  if (!pluginLoadPromise) {
+    pluginLoadPromise = import('capacitor-plugin-healthkit')
+      .then((module) => {
+        if (module && module.HealthKit) {
+          HealthKit = module.HealthKit;
+          return HealthKit;
+        }
+        return webHealthKitStub;
+      })
+      .catch((error) => {
+        console.warn('HealthKit plugin not available:', error);
+        return webHealthKitStub;
+      });
+  }
+
+  return pluginLoadPromise;
 }
 
 /**
- * Generate mock health data for web development
+ * Validate and normalize an array of health samples
  */
-function generateMockHealthData(dataType, period = 'week') {
-  const now = new Date();
-  const days = period === 'day' ? 1 : period === 'week' ? 7 : period === 'month' ? 30 : 365;
-  const data = [];
-  
-  for (let i = 0; i < days; i++) {
-    const date = new Date(now - i * 24 * 60 * 60 * 1000);
-    let value, unit;
-    
-    switch (dataType) {
-      case 'steps':
-        value = Math.floor(Math.random() * 5000) + 8000;
-        unit = 'count';
-        break;
-      case 'heartRate':
-        value = Math.floor(Math.random() * 30) + 60;
-        unit = 'bpm';
-        break;
-      case 'weight':
-        value = 70 + Math.random() * 20;
-        unit = 'kg';
-        break;
-      case 'calories':
-        value = Math.floor(Math.random() * 800) + 1800;
-        unit = 'kcal';
-        break;
-      case 'distance':
-        value = Math.random() * 10000 + 2000;
-        unit = 'm';
-        break;
-      default:
-        value = Math.random() * 100;
-        unit = 'count';
-    }
-    
-    data.push({
-      date: date.toISOString(),
-      value,
-      unit
-    });
-  }
-  
-  return data;
-}
+function normalizeSamples(samples, defaultUnit = '') {
+  if (!Array.isArray(samples)) return [];
 
-function generateMockWorkouts() {
-  const workoutTypes = ['Running', 'Cycling', 'Swimming', 'Strength Training', 'Yoga'];
-  const workouts = [];
-  
-  for (let i = 0; i < 10; i++) {
-    const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-    workouts.push({
-      type: workoutTypes[Math.floor(Math.random() * workoutTypes.length)],
-      date: date.toISOString(),
-      duration: Math.floor(Math.random() * 60) + 30,
-      calories: Math.floor(Math.random() * 500) + 200
-    });
-  }
-  
-  return workouts;
-}
-
-function generateMockSleepData() {
-  const sleepData = [];
-  
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-    sleepData.push({
-      date: date.toISOString(),
-      value: Math.random() * 2 + 7, // 7-9 hours
-      unit: 'hours',
-      sleepEfficiency: Math.random() * 20 + 80 // 80-100%
-    });
-  }
-  
-  return sleepData;
+  return samples
+    .filter((item) => {
+      if (!item || typeof item !== 'object') return false;
+      const val = Number(item.value);
+      return Boolean(item.date) && !Number.isNaN(val);
+    })
+    .map((item) => ({
+      ...item,
+      date: item.date,
+      value: Number(item.value),
+      unit: item.unit || defaultUnit,
+    }))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
 }
 
 /**
  * Apple Health Service Class
- * Manages all health data fetching and processing
+ * Manages all health data fetching, caching, and processing
  */
 class AppleHealthService {
   constructor() {
@@ -139,27 +89,49 @@ class AppleHealthService {
   }
 
   /**
+   * Check whether a cached entry is still valid
+   */
+  getCached(cacheKey) {
+    const timestamp = this.lastFetch[cacheKey];
+    if (timestamp && Date.now() - timestamp < CACHE_TTL_MS && this.cachedData[cacheKey] !== undefined) {
+      return this.cachedData[cacheKey];
+    }
+    return null;
+  }
+
+  /**
+   * Store a value in the in-memory TTL cache
+   */
+  setCached(cacheKey, value) {
+    this.cachedData[cacheKey] = value;
+    this.lastFetch[cacheKey] = Date.now();
+  }
+
+  /**
+   * Clear in-memory and native plugin caches
+   */
+  async clearCache() {
+    this.cachedData = {};
+    this.lastFetch = {};
+    const hk = await getHealthKit();
+    if (hk?.clearCache) {
+      await hk.clearCache();
+    }
+  }
+
+  /**
    * Initialize the service and check availability
    */
   async initialize() {
     try {
-      const { available } = await HealthKit.isAvailable();
+      const hk = await getHealthKit();
+      const { available } = await hk.isAvailable();
       if (available) {
         this.isInitialized = true;
-        console.log('HealthKit is available');
         return true;
-      }
-      if (Capacitor.isNativePlatform()) {
-        console.log('HealthKit not available on this device');
-      } else {
-        console.log('HealthKit not available - running in web mode with mock data');
       }
       return false;
     } catch (error) {
-      if (!Capacitor.isNativePlatform()) {
-        console.log('Running in web mode - HealthKit functionality mocked');
-        return false;
-      }
       console.error('Error initializing HealthKit:', error);
       return false;
     }
@@ -170,7 +142,8 @@ class AppleHealthService {
    */
   async requestPermissions() {
     try {
-      const { authorized } = await HealthKit.requestAuthorization();
+      const hk = await getHealthKit();
+      const { authorized } = await hk.requestAuthorization();
       this.hasPermissions = authorized;
       return authorized;
     } catch (error) {
@@ -221,9 +194,8 @@ class AppleHealthService {
    * CARDIOVASCULAR DATA
    */
   async getCardiovascularData() {
-    const [heartRate, restingHR, hrv, vo2Max, bloodOxygen, respiratoryRate] = await Promise.all([
+    const [heartRate, hrv, vo2Max, bloodOxygen, respiratoryRate] = await Promise.all([
       this.fetchHealthData('heartRate', 'day'),
-      this.fetchHealthData('restingHeartRate', 'week'),
       this.fetchHealthData('heartRateVariability', 'week'),
       this.fetchHealthData('vo2Max', 'month'),
       this.fetchHealthData('oxygenSaturation', 'day'),
@@ -319,15 +291,12 @@ class AppleHealthService {
    * NUTRITION DATA
    */
   async getNutritionData() {
-    const [energy, protein, carbs, fat, water, fiber, sugar, sodium] = await Promise.all([
+    const [energy, protein, carbs, fat, water] = await Promise.all([
       this.fetchHealthData('dietaryEnergy', 'day'),
       this.fetchHealthData('dietaryProtein', 'day'),
       this.fetchHealthData('dietaryCarbs', 'day'),
       this.fetchHealthData('dietaryFat', 'day'),
-      this.fetchHealthData('dietaryWater', 'day'),
-      this.fetchHealthData('dietaryFiber', 'day'),
-      this.fetchHealthData('dietarySugar', 'day'),
-      this.fetchHealthData('dietarySodium', 'day')
+      this.fetchHealthData('dietaryWater', 'day')
     ]);
 
     const micronutrients = await this.getMicronutrients();
@@ -722,22 +691,301 @@ class AppleHealthService {
    * HELPER FUNCTIONS
    */
   
-  async fetchHealthData(dataType, period = 'day') {
+  async fetchHealthData(dataType, period = 'day', forceRefresh = false) {
+    const cacheKey = `${dataType}:${period}`;
+    if (!forceRefresh) {
+      const cached = this.getCached(cacheKey);
+      if (cached !== null) return cached;
+    }
+
     try {
-      // Check if HealthKit is available
-      if (!HealthKit || !HealthKit.queryHealthData) {
-        console.warn('HealthKit not available');
+      const hk = await getHealthKit();
+      if (!hk || !hk.queryHealthData) {
         return [];
       }
-      
-      const result = await HealthKit.queryHealthData({ dataType, period });
-      return result.data || [];
+
+      const result = await hk.queryHealthData({ dataType, period, forceRefresh });
+      const normalized = normalizeSamples(result?.data || []);
+      this.setCached(cacheKey, normalized);
+      return normalized;
     } catch (error) {
-      // Don't log errors for unsupported data types
-      if (error.message && !error.message.includes('Unsupported data type')) {
+      if (error?.message && !error.message.includes('Unsupported data type')) {
         console.error(`Error fetching ${dataType}:`, error);
       }
       return [];
+    }
+  }
+
+  /**
+   * Fetch step count data transformed for UI consumption
+   */
+  async fetchSteps(period = 'week', forceRefresh = false) {
+    try {
+      const raw = await this.fetchHealthData('steps', period, forceRefresh);
+      const data = normalizeSamples(raw, 'count');
+      const total = data.reduce((sum, item) => sum + item.value, 0);
+      const days = new Set(data.map((d) => String(d.date).slice(0, 10))).size;
+      const dailyAverage = days > 0 ? Math.round(total / days) : 0;
+
+      return {
+        data,
+        total: Math.round(total),
+        dailyAverage,
+        latest: data[0]?.value ?? null,
+        lastUpdated: data[0]?.date ?? null,
+        unit: 'count',
+        source: this.isNativePlatform ? 'Apple HealthKit' : 'none',
+      };
+    } catch (error) {
+      console.error('Error in fetchSteps:', error);
+      return {
+        data: [],
+        total: 0,
+        dailyAverage: 0,
+        latest: null,
+        lastUpdated: null,
+        unit: 'count',
+        source: 'none',
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Fetch heart rate and resting heart rate data transformed for UI consumption
+   */
+  async fetchHeartRate(period = 'day', forceRefresh = false) {
+    try {
+      const [rawHr, rawResting] = await Promise.all([
+        this.fetchHealthData('heartRate', period, forceRefresh),
+        this.fetchHealthData('restingHeartRate', 'week', forceRefresh),
+      ]);
+
+      const data = normalizeSamples(rawHr, 'bpm').filter(
+        (d) => d.value >= 30 && d.value <= 250
+      );
+      const restingData = normalizeSamples(rawResting, 'bpm').filter(
+        (d) => d.value >= 30 && d.value <= 130
+      );
+
+      const values = data.map((d) => d.value);
+      const average =
+        values.length > 0
+          ? Math.round(values.reduce((sum, v) => sum + v, 0) / values.length)
+          : null;
+
+      return {
+        data,
+        restingData,
+        current: data[0]?.value ?? null,
+        resting: restingData[0]?.value ?? (values.length > 0 ? Math.min(...values) : null),
+        min: values.length > 0 ? Math.min(...values) : null,
+        max: values.length > 0 ? Math.max(...values) : null,
+        average,
+        lastUpdated: data[0]?.date ?? null,
+        unit: 'bpm',
+        source: this.isNativePlatform ? 'Apple HealthKit' : 'none',
+      };
+    } catch (error) {
+      console.error('Error in fetchHeartRate:', error);
+      return {
+        data: [],
+        restingData: [],
+        current: null,
+        resting: null,
+        min: null,
+        max: null,
+        average: null,
+        lastUpdated: null,
+        unit: 'bpm',
+        source: 'none',
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Fetch sleep records from HealthKit transformed for UI consumption
+   */
+  async fetchSleep(period = 'week', forceRefresh = false) {
+    const cacheKey = `sleep:${period}`;
+    if (!forceRefresh) {
+      const cached = this.getCached(cacheKey);
+      if (cached !== null) return cached;
+    }
+
+    try {
+      const hk = await getHealthKit();
+      let raw = [];
+      if (hk?.querySleepData) {
+        const result = await hk.querySleepData({ period });
+        raw = result?.data || [];
+      }
+
+      const data = normalizeSamples(raw, 'hours');
+      const weeklyAverage =
+        data.length > 0
+          ? Number(
+              (data.reduce((sum, item) => sum + item.value, 0) / data.length).toFixed(1)
+            )
+          : null;
+      const latest = data[0] || null;
+      const efficiency = latest?.sleepEfficiency ?? null;
+
+      const transformed = {
+        data,
+        lastNight: latest ? latest.value : null,
+        weeklyAverage,
+        efficiency,
+        quality:
+          latest && latest.value >= 7.5
+            ? 'optimal'
+            : latest && latest.value >= 6.5
+            ? 'good'
+            : latest
+            ? 'suboptimal'
+            : null,
+        lastUpdated: latest?.date ?? null,
+        unit: 'hours',
+        source: this.isNativePlatform ? 'Apple HealthKit' : 'none',
+      };
+
+      this.setCached(cacheKey, transformed);
+      return transformed;
+    } catch (error) {
+      console.error('Error in fetchSleep:', error);
+      return {
+        data: [],
+        lastNight: null,
+        weeklyAverage: null,
+        efficiency: null,
+        quality: null,
+        lastUpdated: null,
+        unit: 'hours',
+        source: 'none',
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Fetch workout sessions from HealthKit transformed for UI consumption
+   */
+  async fetchWorkouts(period = 'month', forceRefresh = false) {
+    const cacheKey = `workouts:${period}`;
+    if (!forceRefresh) {
+      const cached = this.getCached(cacheKey);
+      if (cached !== null) return cached;
+    }
+
+    try {
+      const hk = await getHealthKit();
+      let raw = [];
+      if (hk?.queryWorkouts) {
+        const result = await hk.queryWorkouts({ period });
+        raw = result?.data || [];
+      }
+
+      const data = (Array.isArray(raw) ? raw : [])
+        .filter((w) => w && w.date)
+        .map((w) => ({
+          date: w.date,
+          endDate: w.endDate || null,
+          type: w.type || 'Workout',
+          duration: Number(w.duration) || 0,
+          unit: w.unit || 'minutes',
+          calories: w.calories !== undefined && w.calories !== null ? Number(w.calories) : null,
+          distance: w.distance !== undefined && w.distance !== null ? Number(w.distance) : null,
+          source: w.source || 'Apple HealthKit',
+        }))
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      const transformed = {
+        data,
+        count: data.length,
+        totalDuration: Math.round(data.reduce((sum, w) => sum + w.duration, 0)),
+        totalCalories: Math.round(data.reduce((sum, w) => sum + (w.calories || 0), 0)),
+        source: this.isNativePlatform ? 'Apple HealthKit' : 'none',
+      };
+
+      this.setCached(cacheKey, transformed);
+      return transformed;
+    } catch (error) {
+      console.error('Error in fetchWorkouts:', error);
+      return {
+        data: [],
+        count: 0,
+        totalDuration: 0,
+        totalCalories: 0,
+        source: 'none',
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Fetch dietary nutrition metrics from HealthKit transformed for UI consumption
+   */
+  async fetchNutrition(period = 'day', forceRefresh = false) {
+    const cacheKey = `nutrition:${period}`;
+    if (!forceRefresh) {
+      const cached = this.getCached(cacheKey);
+      if (cached !== null) return cached;
+    }
+
+    try {
+      const [energy, protein, carbs, fat, water, fiber, sugar] = await Promise.all([
+        this.fetchHealthData('dietaryEnergy', period, forceRefresh),
+        this.fetchHealthData('dietaryProtein', period, forceRefresh),
+        this.fetchHealthData('dietaryCarbs', period, forceRefresh),
+        this.fetchHealthData('dietaryFat', period, forceRefresh),
+        this.fetchHealthData('dietaryWater', period, forceRefresh),
+        this.fetchHealthData('dietaryFiber', period, forceRefresh),
+        this.fetchHealthData('dietarySugar', period, forceRefresh),
+      ]);
+
+      const sumValues = (arr) =>
+        arr.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+
+      const hasData =
+        energy.length > 0 ||
+        protein.length > 0 ||
+        carbs.length > 0 ||
+        fat.length > 0 ||
+        water.length > 0;
+
+      const transformed = {
+        hasData,
+        calories: Math.round(sumValues(energy)),
+        protein: Math.round(sumValues(protein)),
+        carbs: Math.round(sumValues(carbs)),
+        fat: Math.round(sumValues(fat)),
+        water: Number(sumValues(water).toFixed(2)),
+        fiber: Math.round(sumValues(fiber)),
+        sugar: Math.round(sumValues(sugar)),
+        raw: { energy, protein, carbs, fat, water, fiber, sugar },
+        lastUpdated: energy[0]?.date || protein[0]?.date || null,
+        source: hasData ? 'Apple HealthKit' : 'none',
+      };
+
+      this.setCached(cacheKey, transformed);
+      return transformed;
+    } catch (error) {
+      console.error('Error in fetchNutrition:', error);
+      return {
+        hasData: false,
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        water: 0,
+        fiber: 0,
+        sugar: 0,
+        raw: {},
+        lastUpdated: null,
+        source: 'none',
+        error: error.message,
+      };
     }
   }
 
@@ -1466,12 +1714,12 @@ class AppleHealthService {
         hydration: { water: 2.8, goal: 2.6, unit: 'L' }
       },
       workouts: {
-        recent: generateMockWorkouts().slice(0, 5),
-        weeklyCount: 4,
-        monthlyCount: 16,
-        favoriteTypes: ['Running', 'Strength Training', 'Cycling'],
-        totalDuration: 480,
-        averageIntensity: 'moderate'
+        recent: [],
+        weeklyCount: 0,
+        monthlyCount: 0,
+        favoriteTypes: [],
+        totalDuration: 0,
+        averageIntensity: 'low'
       },
       mentalHealth: {
         mindfulMinutes: 15,
@@ -1526,11 +1774,25 @@ class AppleHealthService {
 // Export singleton instance
 const appleHealthService = new AppleHealthService();
 
-// Export individual functions for backward compatibility
+// Export individual functions
 export const isHealthKitAvailable = () => appleHealthService.initialize();
 export const requestHealthKitPermissions = () => appleHealthService.requestPermissions();
-export const fetchHealthData = (dataType, period) => appleHealthService.fetchHealthData(dataType, period);
-export const clearHealthDataCache = () => HealthKit?.clearCache ? HealthKit.clearCache() : Promise.resolve();
-export const startObservingHealthData = (dataType) => HealthKit?.startObservingHealthData ? HealthKit.startObservingHealthData({ dataType }) : Promise.resolve();
+export const fetchHealthData = (dataType, period, forceRefresh) =>
+  appleHealthService.fetchHealthData(dataType, period, forceRefresh);
+export const fetchSteps = (period, forceRefresh) =>
+  appleHealthService.fetchSteps(period, forceRefresh);
+export const fetchHeartRate = (period, forceRefresh) =>
+  appleHealthService.fetchHeartRate(period, forceRefresh);
+export const fetchSleep = (period, forceRefresh) =>
+  appleHealthService.fetchSleep(period, forceRefresh);
+export const fetchWorkouts = (period, forceRefresh) =>
+  appleHealthService.fetchWorkouts(period, forceRefresh);
+export const fetchNutrition = (period, forceRefresh) =>
+  appleHealthService.fetchNutrition(period, forceRefresh);
+export const clearHealthDataCache = () => appleHealthService.clearCache();
+export const startObservingHealthData = (dataType) =>
+  HealthKit?.startObservingHealthData
+    ? HealthKit.startObservingHealthData({ dataType })
+    : Promise.resolve();
 
 export default appleHealthService;

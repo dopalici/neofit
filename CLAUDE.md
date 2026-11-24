@@ -55,26 +55,29 @@ npx cap run ios --livereload --external
 2. **Dashboard**: `src/components/dashboard/Dashboard.jsx`
    - Main interface with multiple tabs:
      - Main Dashboard
-     - Habit System
-     - Nutrition
-     - Health Data
+     - Workouts (`WorkoutLogger.jsx`)
+     - Habit System (`HabitDashboard.jsx`)
+     - Nutrition (`EnhancedNutritionPanel.jsx`)
+     - Sleep (`SleepAnalysis.jsx`)
+     - Knowledge (`KnowledgeBaseBrowser.jsx`)
+     - Health Data (`HealthDataDashboard.jsx`)
 
 3. **Header**: `src/components/dashboard/Header.jsx` 
    - Contains navigation and settings buttons
-   - Opens AI Chatbot and Integration Modal
+   - Opens AI Chatbot and Integration Modal (Connections & Knowledge Base tabs)
 
 4. **Panels**:
    - `BiometricPanel.jsx`: Shows user metrics and biometric data
-   - `EnhancementMetricsPanel.jsx`: Shows fitness enhancement metrics
-   - `GoalsPanel.jsx`: Displays user goals and progress
-   - `NutritionPanel.jsx`: Shows nutrition data and macros
-   - `EnhancedNutritionPanel.jsx`: Enhanced version with more detailed info
+   - `EnhancementMetricsPanel.jsx`: Shows fitness enhancement metrics (symmetry, potential, efficiency, recovery)
+   - `EnhancementProtocolsPanel.jsx`: Displays user enhancement protocols, streak impact, and challenge triggers
+   - `EnhancedNutritionPanel.jsx`: Shows nutrition data, macros, food database quick-add, water logging, and meal logging
+   - `ActivityLog.jsx`: Displays recent logged and imported workouts with pagination
+   - `WorkoutLogger.jsx`: Interactive workout session logger with templates, exercise database, set/rep/weight tracking, and rest timer
    - `SleepAnalysis.jsx`: Sleep data analysis and recommendations
+   - `KnowledgeBaseBrowser.jsx`: Searchable, categorized browser for the 310-note FitLib knowledge base
 
 5. **3D Visualization**: `src/components/3d/`
-   - `AnimatedBiometricModel.jsx`: 3D human model with biometric data
-   - `HumanBodyModelViewer.jsx`: Generic 3D body model viewer
-   - `ExerciseForm.jsx`: Exercise form visualization
+   - `AnimatedBiometricModel.jsx`: 3D human model with biometric data and FBX exercise animations
 
 6. **Habit System**: `src/components/habit/`
    - `HabitStreakTracker.jsx`: Tracks consistency streaks
@@ -84,12 +87,16 @@ npx cap run ios --livereload --external
    - `VariableRewardsSystem.jsx`: Reward system for habit formation
 
 7. **AI Chatbot**: `src/components/dashboard/AIChatbot.jsx`
-   - Provides personalized health and fitness advice
-   - Integrates with knowledge base
+   - Provides personalized health and fitness advice with configurable OpenAI/Anthropic API or local FitLib RAG fallback
+   - Includes rate limiting, token budgeting, and persistent conversation history
 
 8. **Knowledge Base**:
-   - `src/components/settings/KnowledgeBaseImporter.jsx`: Imports knowledge files
-   - Knowledge base content from Obsidian markdown files (`fitlib/`)
+   - `public/knowledge-base.json`: Pre-indexed 310-note FitLib Zettelkasten auto-loaded on demand
+   - `src/components/settings/KnowledgeBaseImporter.jsx`: Custom Obsidian vault importer (accessible via Settings modal)
+
+9. **Onboarding & UX Resilience**:
+   - `src/components/onboarding/OnboardingFlow.jsx`: 3-step setup wizard (welcome, HealthKit permissions, goal & nutrition targets)
+   - `src/components/ui/ErrorBoundary.jsx` & `src/components/ui/LoadingSkeleton.jsx`: Error boundaries, loading skeletons, and offline mode banner
 
 ## Architecture Overview
 
@@ -108,8 +115,7 @@ npx cap run ios --livereload --external
    - `plugins/capacitor-healthkit/`: Custom Capacitor plugin
 
 2. **3D Visualization**
-   - `src/components/3d/`: 3D models and visualization components
-   - `src/hooks/useBodyModel.js`: Model state management
+   - `src/components/3d/AnimatedBiometricModel.jsx`: 3D model and animation viewer
 
 3. **Dashboard and Analytics**
    - `src/components/dashboard/`: Dashboard components

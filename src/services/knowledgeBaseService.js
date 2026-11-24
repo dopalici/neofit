@@ -53,7 +53,58 @@ export function getKnowledgeBase() {
  * @returns {boolean} True if initialized
  */
 export function isKnowledgeBaseInitialized() {
+  if (!isInitialized && Object.keys(fitnessKnowledgeBase).length === 0) {
+    getKnowledgeBase();
+  }
   return isInitialized;
+}
+
+let defaultLoadPromise = null;
+
+/**
+ * Lazily load the pre-indexed FitLib knowledge base from /knowledge-base.json
+ * if no custom vault has been imported yet.
+ */
+export async function loadDefaultKnowledgeBase() {
+  if (isKnowledgeBaseInitialized()) {
+    return fitnessKnowledgeBase;
+  }
+
+  if (!defaultLoadPromise) {
+    defaultLoadPromise = fetch("/knowledge-base.json")
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (data && typeof data === "object" && Object.keys(data).length > 0) {
+          fitnessKnowledgeBase = data;
+          isInitialized = true;
+        }
+        return fitnessKnowledgeBase;
+      })
+      .catch((error) => {
+        console.warn("Could not load default knowledge base:", error);
+        defaultLoadPromise = null;
+        return fitnessKnowledgeBase;
+      });
+  }
+
+  return defaultLoadPromise;
+}
+
+/**
+ * Get summary stats about the loaded knowledge base
+ */
+export function getKnowledgeBaseStats() {
+  const kb = getKnowledgeBase();
+  const entries = Object.values(kb);
+  const categories = getCategories(kb);
+  return {
+    totalEntries: entries.length,
+    categories,
+    isInitialized,
+  };
 }
 
 /**

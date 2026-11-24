@@ -73,9 +73,15 @@ export function useAppleHealth(dataTypes = ["sleep"], period = "week") {
         if (available) {
           const authorized = await requestHealthKitPermissions();
           setHasPermission(authorized);
+          if (!authorized) {
+            setIsLoading(false);
+          }
+        } else {
+          setIsLoading(false);
         }
       } catch (err) {
         setError(err);
+        setIsLoading(false);
         console.error("HealthKit availability check failed:", err);
       }
     }
@@ -193,7 +199,9 @@ export function useAppleHealth(dataTypes = ["sleep"], period = "week") {
         }
       });
 
-      cleanupFunctions.push(stopObserving);
+      if (typeof stopObserving === "function") {
+        cleanupFunctions.push(stopObserving);
+      }
     });
 
     // Cleanup all observers
@@ -203,11 +211,13 @@ export function useAppleHealth(dataTypes = ["sleep"], period = "week") {
   }, [dataTypes, isAvailable, hasPermission]);
 
   return {
+    data: healthData,
     healthData,
     isLoading,
     error,
     isAvailable,
     hasPermission,
+    isAuthorized: hasPermission,
     lastUpdated,
     loadData,
     refreshData,

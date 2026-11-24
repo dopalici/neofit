@@ -405,6 +405,3 @@ export interface TrendAnalysis {
     nextMonth?: number;
   };
 }
-
-// Export all types
-export * from './definitions';

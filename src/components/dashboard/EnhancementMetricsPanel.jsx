@@ -4,88 +4,11 @@ import { Heart, Zap, Shield, Droplet, Activity, Moon, Utensils, Brain } from 'lu
 import { processEnhancementMetrics } from '../../services/healthDataProcessor';
 
 export default function EnhancementMetricsPanel({ healthData }) {
-  const [metrics, setMetrics] = useState({
-    individualMetrics: {
-      cardiacEfficiency: {
-        current: 62,
-        status: 'OPTIMAL',
-        score: 75
-      },
-      oxygenUtilization: {
-        current: 42.5,
-        status: 'ADVANCED',
-        score: 68
-      },
-      forceOutput: {
-        current: 78,
-        status: 'ADVANCED',
-        score: 78
-      },
-      enduranceMatrix: {
-        current: 82,
-        status: 'SUPERIOR',
-        score: 82
-      }
-    },
-    cardiovascular: {
-      restingHeartRate: 55,
-      heartRateVariability: 48,
-      oxygenSaturation: 98,
-      recoveryRate: 32,
-      vo2Max: 42,
-      cardioLoad: 68,
-      overallScore: 85,
-      status: 'EXCELLENT'
-    },
-    sleep: {
-      efficiency: 92,
-      deepPercent: 22,
-      remPercent: 25,
-      awakeTime: 0.4,
-      totalTime: 7.8,
-      recoveryContribution: 88,
-      overallScore: 85,
-      status: 'OPTIMAL'
-    },
-    activity: {
-      dailySteps: 9240,
-      activeMinutes: 45,
-      standHours: 12,
-      totalCalories: 2450,
-      activeCalories: 650,
-      basalCalories: 1800,
-      overallScore: 72,
-      status: 'ACTIVE'
-    },
-    nutrition: {
-      totalCalories: 2200,
-      macroRatio: {
-        protein: 30,
-        carbs: 45,
-        fat: 25
-      },
-      hydration: 2.8,
-      overallScore: 80,
-      status: 'OPTIMAL'
-    },
-    trainingStatus: {
-      currentLoad: 55,
-      loadRatio: 1.1,
-      overtraining: false,
-      detraining: false,
-      optimal: true,
-      recommendation: 'MAINTAIN CURRENT LOAD',
-      overallScore: 85,
-      status: 'OPTIMAL ADAPTATION'
-    }
-  });
+  const [metrics, setMetrics] = useState(() => processEnhancementMetrics(healthData));
 
-  // Process health data to calculate enhancement metrics
+  // Recalculate enhancement metrics whenever healthData updates
   useEffect(() => {
-    if (!healthData) return;
-    
-    const processedMetrics = processEnhancementMetrics(healthData);
-    setMetrics(processedMetrics);
+    setMetrics(processEnhancementMetrics(healthData));
   }, [healthData]);
 
   // Get status class for color coding
@@ -273,6 +196,30 @@ export default function EnhancementMetricsPanel({ healthData }) {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 pt-4 border-t border-cyan-900/60">
+            {[
+              { label: 'SYMMETRY', value: metrics.enhancementScores?.symmetry, hint: 'Workout Balance' },
+              { label: 'POTENTIAL', value: metrics.enhancementScores?.potential, hint: 'Progress Trend' },
+              { label: 'EFFICIENCY', value: metrics.enhancementScores?.efficiency, hint: 'Heart Rate' },
+              { label: 'RECOVERY', value: metrics.enhancementScores?.recovery, hint: 'HRV & Sleep' },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="bg-gray-950/80 border border-cyan-900/70 px-3 py-2 rounded flex items-center justify-between"
+              >
+                <div>
+                  <p className="text-[11px] text-cyan-600 font-mono">{item.label}</p>
+                  <p className="text-[10px] text-cyan-700 font-mono">{item.hint}</p>
+                </div>
+                <p className="text-base font-bold text-cyan-300 font-mono">
+                  {item.value !== null && item.value !== undefined ? `${item.value}%` : '--'}
+                </p>
+              </div>
+            ))}
           </div>
         )}
 

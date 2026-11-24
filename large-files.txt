@@ -1,3 +1,0 @@
-src/components/settings/apple_health_export/export_cda.xml
-src/components/settings/apple_health_export/export.xml
-npm 

@@ -1,17 +1,35 @@
-import React, { useState } from "react";
-// import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
 import ScanlineEffect from "../ui/ScanlineEffect";
+import ErrorBoundary from "../ui/ErrorBoundary";
+import { DashboardSkeleton, OfflineBanner } from "../ui/LoadingSkeleton";
+import OnboardingFlow, { ONBOARDING_STORAGE_KEY } from "../onboarding/OnboardingFlow";
 import AIChatbot from "./AIChatbot";
+import ActivityLog from "./ActivityLog";
 import BiometricPanel from "./BiometricPanel";
+import EnhancedNutritionPanel from "./EnhancedNutritionPanel";
 import EnhancementMetricsPanel from "./EnhancementMetricsPanel";
-import GoalsPanel from "./GoalsPanel";
+import EnhancementProtocolsPanel from "./EnhancementProtocolsPanel";
 import HabitDashboard from "./HabitDashboard";
 import Header from "./Header";
 import HealthDataDashboard from "./HealthDataDashboard";
 import IntegrationModal from "./IntegrationModal";
-import NutritionPanel from "./NutritionPanel";
+import KnowledgeBaseBrowser from "./KnowledgeBaseBrowser";
+import SleepAnalysis from "./SleepAnalysis";
+import WorkoutLogger from "./WorkoutLogger";
+import { manageChallenge } from "../../services/habitService";
+import { getFromStorage } from "../../utils/storageUtils";
 
-export default function Dashboard({ 
+const TABS = [
+  { id: "main", label: "DASHBOARD" },
+  { id: "workouts", label: "WORKOUTS" },
+  { id: "habits", label: "HABIT SYSTEM" },
+  { id: "nutrition", label: "NUTRITION" },
+  { id: "sleep", label: "SLEEP" },
+  { id: "knowledge", label: "KNOWLEDGE" },
+  { id: "health", label: "HEALTH DATA" },
+];
+
+export default function Dashboard({
   userData: propsUserData,
   healthData: propsHealthData,
   nutritionData: propsNutritionData,
@@ -22,60 +40,69 @@ export default function Dashboard({
   onCheckIn,
   onToggleConnection,
   onRefreshData,
-  onSyncNutrition
+  onSyncNutrition,
+  onAddMeal,
+  onAddWater,
+  onUpdateGoals,
+  onWorkoutLogged,
 }) {
-  const [showIntro, setShowIntro] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    const saved = getFromStorage(ONBOARDING_STORAGE_KEY, null);
+    return !(saved && saved.completed);
+  });
   const [activeTab, setActiveTab] = useState("main");
   const [showIntegrationModal, setShowIntegrationModal] = useState(false);
   const [showAIChatbot, setShowAIChatbot] = useState(false);
+  const [isOffline, setIsOffline] = useState(
+    typeof navigator !== "undefined" ? !navigator.onLine : false
+  );
 
-  // const navigate = useNavigate();
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
-  // Use props data or fallback to mock data
+  // Use props data or clean empty structures (no hardcoded mock metrics)
   const userData = propsUserData || {
     metrics: {
-      symmetry: "96.2",
-      potential: "71.8",
+      symmetry: null,
+      potential: null,
+      efficiency: null,
+      recovery: null,
     },
   };
 
   const healthData = propsHealthData || {
-    heartRate: {
-      lastUpdated: new Date().toLocaleString(),
-    },
-    steps: {
-      value: 8500,
-      lastUpdated: new Date().toLocaleString(),
-    },
-    sleep: {
-      quality: "good",
-      duration: "7.5",
-      lastUpdated: new Date().toLocaleString(),
-    },
+    hasData: false,
+    source: "none",
+    heartRate: { data: [], lastUpdated: null },
+    steps: { data: [], today: null, lastUpdated: null },
+    sleep: { data: [], lastUpdated: null },
+    workouts: { data: [], recent: [] },
   };
 
   const nutritionData = propsNutritionData || {
-    calories: {
-      lastUpdated: new Date().toLocaleString(),
-    },
-    protein: { consumed: 120 },
-    carbs: { consumed: 200 },
-    fat: { consumed: 80 },
+    source: "none",
+    calories: { consumed: 0, goal: 2200, lastUpdated: null },
+    protein: { consumed: 0, goal: 140 },
+    carbs: { consumed: 0, goal: 220 },
+    fat: { consumed: 0, goal: 73 },
+    water: { consumed: 0, goal: 3 },
+    meals: [],
   };
 
   const habitData = propsHabitData || {
-    checkInsData: {
-      lastCheckIn: new Date().toISOString().split("T")[0],
-    },
-    streakData: {
-      currentStreak: 5,
-    },
+    checkInsData: { lastCheckIn: null },
+    streakData: { currentStreak: 0 },
   };
 
-  const userGoals = propsUserGoals || [
-    { id: 1, title: "Increase VO2 Max", progress: 65 },
-    { id: 2, title: "Improve Sleep Quality", progress: 80 },
-  ];
+  const userGoals = propsUserGoals || {};
 
   const connectedApps = propsConnectedApps || {
     appleHealth: false,
@@ -85,102 +112,31 @@ export default function Dashboard({
 
   const isDataFetching = propsIsDataFetching || false;
 
-  const handleCheckIn = onCheckIn || (() => {
-    console.log("Check-in recorded");
-  });
+  const handleCheckIn = onCheckIn || (() => {});
+  const toggleAppConnection = onToggleConnection || (() => {});
+  const refreshAllData = onRefreshData || (() => {});
+  const syncNutritionData = onSyncNutrition || (() => {});
 
-  const toggleAppConnection = onToggleConnection || ((app) => {
-    console.log(`Toggle connection for ${app}`);
-  });
-
-  const refreshAllData = onRefreshData || (() => {
-    console.log("Refresh all data");
-  });
-
-  const syncNutritionData = onSyncNutrition || (() => {
-    console.log("Sync nutrition data");
-  });
+  const handleStartProtocolChallenge = (goalId, challenge) => {
+    if (challenge?.id) {
+      manageChallenge(challenge.id, "start", userGoals[goalId]?.type || "strength");
+    }
+    setActiveTab("habits");
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-cyan-400 relative overflow-hidden">
       <ScanlineEffect />
+      {isOffline && <OfflineBanner />}
 
-      {showIntro ? (
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center max-w-2xl p-8 bg-gray-900 border border-cyber-cyan rounded-lg shadow-lg shadow-cyan-900/30">
-            <h1 className="text-5xl font-bold text-cyber-cyan mb-8">
-              NEO•VITRU
-            </h1>
-            <div className="mb-8 relative">
-              <svg
-                viewBox="0 0 100 160"
-                className="w-48 h-64 mx-auto text-cyber-cyan opacity-80"
-              >
-                <g stroke="currentColor" fill="none" strokeWidth="0.8">
-                  <path d="M50,30 C55,30 60,35 60,40 C60,45 55,50 50,55 C45,50 40,45 40,40 C40,35 45,30 50,30 Z" />
-                  <line x1="50" y1="55" x2="50" y2="100" />
-                  <line x1="50" y1="65" x2="30" y2="85" />
-                  <line x1="30" y1="85" x2="25" y2="105" />
-                  <line x1="50" y1="65" x2="70" y2="85" />
-                  <line x1="70" y1="85" x2="75" y2="105" />
-                  <line x1="50" y1="100" x2="35" y2="130" />
-                  <line x1="50" y1="100" x2="65" y2="130" />
-                  <circle cx="50" cy="80" r="45" strokeDasharray="1,1" />
-                  <line
-                    x1="20"
-                    y1="40"
-                    x2="40"
-                    y2="40"
-                    strokeWidth="0.2"
-                    strokeDasharray="1,1"
-                  />
-                  <line
-                    x1="60"
-                    y1="40"
-                    x2="80"
-                    y2="40"
-                    strokeWidth="0.2"
-                    strokeDasharray="1,1"
-                  />
-                  <line
-                    x1="35"
-                    y1="130"
-                    x2="65"
-                    y2="130"
-                    strokeWidth="0.2"
-                    strokeDasharray="1,1"
-                  />
-                </g>
-                <g fill="rgba(0,255,255,0.8)">
-                  <circle cx="50" cy="40" r="0.8" />
-                  <circle cx="50" cy="65" r="0.8" />
-                  <circle cx="30" cy="85" r="0.8" />
-                  <circle cx="70" cy="85" r="0.8" />
-                  <circle cx="50" cy="100" r="0.8" />
-                  <circle cx="25" cy="105" r="0.8" />
-                  <circle cx="75" cy="105" r="0.8" />
-                  <circle cx="35" cy="130" r="0.8" />
-                  <circle cx="65" cy="130" r="0.8" />
-                </g>
-              </svg>
-              <div className="absolute top-4 left-0 text-xs font-mono text-cyber-cyan">
-                SYMMETRY: {userData?.metrics?.symmetry || "96.2"}%
-              </div>
-              <div className="absolute bottom-4 right-0 text-xs font-mono text-cyber-cyan">
-                POTENTIAL: {userData?.metrics?.potential || "71.8"}%
-              </div>
-            </div>
-            <p className="text-cyber-pink mb-6 font-mono">
-              TRANSHUMANIST FITNESS JOURNEY INITIALIZING
-            </p>
-            <button
-              onClick={() => setShowIntro(false)}
-              className="bg-cyber-black text-cyber-cyan border border-cyber-cyan px-6 py-3 rounded font-mono hover:bg-cyber-cyan hover:text-cyber-black transition-colors duration-300"
-            >
-              INITIALIZE SYSTEM
-            </button>
-          </div>
-        </div>
+      {showOnboarding ? (
+        <OnboardingFlow
+          onComplete={() => {
+            setShowOnboarding(false);
+            refreshAllData();
+          }}
+          onUpdateGoals={onUpdateGoals}
+        />
       ) : (
         <>
           <Header
@@ -192,220 +148,217 @@ export default function Dashboard({
           <div className="mb-6 border-b border-cyan-800">
             <div className="container mx-auto px-6">
               <div className="flex space-x-6 overflow-x-auto">
-                <button
-                  className={`py-3 px-4 whitespace-nowrap ${
-                    activeTab === "main"
-                      ? "text-cyan-300 border-b-2 border-cyan-500"
-                      : "text-cyan-600"
-                  }`}
-                  onClick={() => setActiveTab("main")}
-                >
-                  DASHBOARD
-                </button>
-                <button
-                  className={`py-3 px-4 whitespace-nowrap ${
-                    activeTab === "habits"
-                      ? "text-cyan-300 border-b-2 border-cyan-500"
-                      : "text-cyan-600"
-                  }`}
-                  onClick={() => setActiveTab("habits")}
-                >
-                  HABIT SYSTEM
-                </button>
-                <button
-                  className={`py-3 px-4 whitespace-nowrap ${
-                    activeTab === "nutrition"
-                      ? "text-cyan-300 border-b-2 border-cyan-500"
-                      : "text-cyan-600"
-                  }`}
-                  onClick={() => setActiveTab("nutrition")}
-                >
-                  NUTRITION
-                </button>
-                <button
-                  className={`py-3 px-4 whitespace-nowrap ${
-                    activeTab === "health"
-                      ? "text-cyan-300 border-b-2 border-cyan-500"
-                      : "text-cyan-600"
-                  }`}
-                  onClick={() => setActiveTab("health")}
-                >
-                  HEALTH DATA
-                </button>
+                {TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    className={`py-3 px-4 whitespace-nowrap font-mono text-sm ${
+                      activeTab === tab.id
+                        ? "text-cyan-300 border-b-2 border-cyan-500"
+                        : "text-cyan-600 hover:text-cyan-400"
+                    }`}
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
-          {activeTab === "main" && (
-            <div className="container mx-auto px-6 py-8">
-              <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
-                <h1 className="text-2xl font-bold text-cyber-cyan font-mono">
-                  HUMAN OPTIMIZATION MATRIX
-                </h1>
-                <div className="relative flex items-center">
-                  <div className="text-xs text-cyan-600 font-mono mr-4">
-                    DATA LAST SYNCED:{" "}
-                    {healthData?.heartRate?.lastUpdated || "Never"}
-                    <button
-                      onClick={refreshAllData}
-                      className="ml-2 text-cyan-500 hover:text-cyan-300"
-                      title="Refresh All Data"
-                    >
-                      <span
-                        className={
-                          isDataFetching
-                            ? "animate-spin inline-block"
-                            : "inline-block"
-                        }
-                      >
-                        ⟳
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-1 space-y-6">
-                  <BiometricPanel userData={userData} healthData={healthData} />
-
-                  {habitData && (
-                    <div className="bg-gray-900 border border-cyan-800 rounded p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <h3 className="text-sm font-mono text-cyan-300">
-                          CONSISTENCY STREAK
-                        </h3>
+          {activeTab === "main" &&
+            (isDataFetching && !propsHealthData ? (
+              <DashboardSkeleton />
+            ) : (
+              <ErrorBoundary fallbackTitle="DASHBOARD RENDER ERROR" onReset={refreshAllData}>
+                <div className="container mx-auto px-6 py-8">
+                  <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+                    <h1 className="text-2xl font-bold text-cyber-cyan font-mono">
+                      HUMAN OPTIMIZATION MATRIX
+                    </h1>
+                    <div className="relative flex items-center">
+                      <div className="text-xs text-cyan-600 font-mono mr-4">
+                        DATA LAST SYNCED:{" "}
+                        {healthData?.heartRate?.lastUpdated || healthData?.lastSynced || "Never"}
                         <button
-                          onClick={handleCheckIn}
-                          className="text-xs text-cyan-600 font-mono hover:text-cyan-400"
-                          disabled={
-                            habitData.checkInsData?.lastCheckIn ===
-                            new Date().toISOString().split("T")[0]
-                          }
+                          onClick={refreshAllData}
+                          className="ml-2 text-cyan-500 hover:text-cyan-300"
+                          title="Refresh All Data"
                         >
-                          {habitData.checkInsData?.lastCheckIn ===
-                          new Date().toISOString().split("T")[0]
-                            ? "CHECKED IN"
-                            : "CHECK IN"}
+                          <span
+                            className={
+                              isDataFetching
+                                ? "animate-spin inline-block"
+                                : "inline-block"
+                            }
+                          >
+                            ⟳
+                          </span>
                         </button>
                       </div>
-                      <div className="flex items-center justify-center">
-                        <div className="relative w-16 h-16 bg-gray-950 border-2 border-cyan-700 rounded-full flex items-center justify-center">
-                          <span className="text-xl font-bold text-cyan-300 font-mono">
-                            {habitData.streakData?.currentStreak || 0}
-                          </span>
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-xs text-cyan-600 font-mono">
-                            {habitData.streakData?.currentStreak
-                              ? `${habitData.streakData.currentStreak}-DAY STREAK`
-                              : "START YOUR STREAK TODAY"}
-                          </p>
-                          <button
-                            onClick={() => setActiveTab("habits")}
-                            className="text-xs text-cyan-500 font-mono hover:text-cyan-400 mt-1"
-                          >
-                            VIEW FULL SYSTEM →
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="lg:col-span-2 space-y-8">
-                  <EnhancementMetricsPanel healthData={healthData} />
-                  <GoalsPanel goals={userGoals} />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <NutritionPanel
-                      nutritionData={nutritionData}
-                      onSyncNutrition={syncNutritionData}
-                      isSyncing={isDataFetching}
-                    />
-                    <div className="bg-gray-900 border border-cyan-800 rounded shadow-lg p-6">
-                      <h2 className="text-lg font-mono text-cyan-300 mb-4">
-                        ACTIVITY LOG
-                      </h2>
-                      <div className="space-y-3">
-                        <div className="bg-gray-950 border border-cyan-900 p-3 rounded">
-                          <p className="text-cyan-600 font-mono text-sm">
-                            Activity log content goes here
-                          </p>
-                        </div>
-                        <div className="bg-gray-950 border border-cyan-900 p-3 rounded">
-                          <p className="text-cyan-600 font-mono text-sm">
-                            More activity...
-                          </p>
-                        </div>
-                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-8 text-center">
-                    <p className="text-cyan-400 mb-3 font-mono">
-                      ENHANCE YOUR FITNESS ROUTINES WITH SCIENCE-BASED HABIT
-                      FORMATION
-                    </p>
-                    <button
-                      onClick={() => setActiveTab("habits")}
-                      className="bg-cyan-900 text-cyan-300 border border-cyan-600 px-6 py-3 rounded-lg font-medium hover:bg-cyan-800 transition"
-                    >
-                      EXPLORE HABIT SYSTEM
-                    </button>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-1 space-y-6">
+                      <BiometricPanel userData={userData} healthData={healthData} />
+
+                      {habitData && (
+                        <div className="bg-gray-900 border border-cyan-800 rounded p-4">
+                          <div className="flex justify-between items-center mb-2">
+                            <h3 className="text-sm font-mono text-cyan-300">
+                              CONSISTENCY STREAK
+                            </h3>
+                            <button
+                              onClick={handleCheckIn}
+                              className="text-xs text-cyan-600 font-mono hover:text-cyan-400"
+                              disabled={
+                                habitData.checkInsData?.lastCheckIn ===
+                                new Date().toISOString().split("T")[0]
+                              }
+                            >
+                              {habitData.checkInsData?.lastCheckIn ===
+                              new Date().toISOString().split("T")[0]
+                                ? "CHECKED IN"
+                                : "CHECK IN"}
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-center">
+                            <div className="relative w-16 h-16 bg-gray-950 border-2 border-cyan-700 rounded-full flex items-center justify-center">
+                              <span className="text-xl font-bold text-cyan-300 font-mono">
+                                {habitData.streakData?.currentStreak || 0}
+                              </span>
+                            </div>
+                            <div className="ml-4">
+                              <p className="text-xs text-cyan-600 font-mono">
+                                {habitData.streakData?.currentStreak
+                                  ? `${habitData.streakData.currentStreak}-DAY STREAK`
+                                  : "START YOUR STREAK TODAY"}
+                              </p>
+                              <button
+                                onClick={() => setActiveTab("habits")}
+                                className="text-xs text-cyan-500 font-mono hover:text-cyan-400 mt-1"
+                              >
+                                VIEW FULL SYSTEM →
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="lg:col-span-2 space-y-8">
+                      <EnhancementMetricsPanel healthData={healthData} />
+                      <EnhancementProtocolsPanel
+                        goals={userGoals}
+                        habitData={habitData}
+                        onStartChallenge={handleStartProtocolChallenge}
+                      />
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <EnhancedNutritionPanel
+                          nutritionData={nutritionData}
+                          onSyncNutrition={syncNutritionData}
+                          isSyncing={isDataFetching}
+                          onAddMeal={onAddMeal}
+                          onAddWater={onAddWater}
+                        />
+                        <ActivityLog workouts={healthData?.workouts?.data} />
+                      </div>
+                    </div>
                   </div>
                 </div>
+              </ErrorBoundary>
+            ))}
+
+          {activeTab === "workouts" && (
+            <ErrorBoundary fallbackTitle="WORKOUT LOGGER ERROR">
+              <div className="container mx-auto px-6 py-8">
+                <h1 className="text-2xl font-bold text-cyber-cyan font-mono mb-6">
+                  WORKOUT LOGGING & TEMPLATES
+                </h1>
+                <WorkoutLogger onWorkoutLogged={onWorkoutLogged} />
               </div>
-            </div>
+            </ErrorBoundary>
           )}
 
           {activeTab === "habits" && (
-            <HabitDashboard
-              userData={userData}
-              habitData={habitData}
-              onCheckIn={handleCheckIn}
-            />
+            <ErrorBoundary fallbackTitle="HABIT SYSTEM ERROR">
+              <HabitDashboard
+                userData={userData}
+                habitData={habitData}
+                onCheckIn={handleCheckIn}
+              />
+            </ErrorBoundary>
           )}
 
           {activeTab === "nutrition" && (
-            <div className="container mx-auto px-6 py-8">
-              <div className="flex justify-between items-center mb-8">
-                <h1 className="text-2xl font-bold text-cyber-cyan font-mono">
-                  NUTRITION OPTIMIZATION
-                </h1>
-                <div className="relative flex items-center">
-                  <div className="text-xs text-cyan-600 font-mono mr-4">
-                    DATA LAST SYNCED:{" "}
-                    {nutritionData?.calories?.lastUpdated || "Never"}
-                    <button
-                      onClick={syncNutritionData}
-                      className="ml-2 text-cyan-500 hover:text-cyan-300"
-                      title="Sync with MyFitnessPal"
-                    >
-                      <span
-                        className={
-                          isDataFetching
-                            ? "animate-spin inline-block"
-                            : "inline-block"
-                        }
+            <ErrorBoundary fallbackTitle="NUTRITION MODULE ERROR">
+              <div className="container mx-auto px-6 py-8">
+                <div className="flex justify-between items-center mb-8">
+                  <h1 className="text-2xl font-bold text-cyber-cyan font-mono">
+                    NUTRITION OPTIMIZATION
+                  </h1>
+                  <div className="relative flex items-center">
+                    <div className="text-xs text-cyan-600 font-mono mr-4">
+                      DATA LAST SYNCED:{" "}
+                      {nutritionData?.calories?.lastUpdated || "Never"}
+                      <button
+                        onClick={syncNutritionData}
+                        className="ml-2 text-cyan-500 hover:text-cyan-300"
+                        title="Sync nutrition data"
                       >
-                        ⟳
-                      </span>
-                    </button>
+                        <span
+                          className={
+                            isDataFetching
+                              ? "animate-spin inline-block"
+                              : "inline-block"
+                          }
+                        >
+                          ⟳
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <NutritionPanel
-                nutritionData={nutritionData}
-                onSyncNutrition={syncNutritionData}
-                isSyncing={isDataFetching}
-                fullWidth={true}
-              />
-            </div>
+                <EnhancedNutritionPanel
+                  nutritionData={nutritionData}
+                  onSyncNutrition={syncNutritionData}
+                  isSyncing={isDataFetching}
+                  onAddMeal={onAddMeal}
+                  onAddWater={onAddWater}
+                />
+              </div>
+            </ErrorBoundary>
           )}
 
-          {activeTab === "health" && <HealthDataDashboard />}
+          {activeTab === "sleep" && (
+            <ErrorBoundary fallbackTitle="SLEEP ANALYSIS ERROR">
+              <div className="container mx-auto px-6 py-8">
+                <h1 className="text-2xl font-bold text-cyber-cyan font-mono mb-8">
+                  SLEEP & RECOVERY ANALYSIS
+                </h1>
+                <SleepAnalysis sleepData={healthData?.sleep} />
+              </div>
+            </ErrorBoundary>
+          )}
+
+          {activeTab === "knowledge" && (
+            <ErrorBoundary fallbackTitle="KNOWLEDGE BASE ERROR">
+              <div className="container mx-auto px-6 py-8">
+                <KnowledgeBaseBrowser
+                  userData={{ healthData, nutritionData, habitData }}
+                  onNavigateToWorkouts={() => setActiveTab("workouts")}
+                />
+              </div>
+            </ErrorBoundary>
+          )}
+
+          {activeTab === "health" && (
+            <ErrorBoundary fallbackTitle="HEALTH DATA ERROR">
+              <HealthDataDashboard />
+            </ErrorBoundary>
+          )}
 
           <IntegrationModal
             isOpen={showIntegrationModal}

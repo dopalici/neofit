@@ -4,6 +4,16 @@ import { STORAGE_KEYS } from '../services/dataImportService';
 import { useAppleHealth } from './useAppleHealth';
 import { processNutritionData } from '../services/healthDataProcessor';
 
+const NUTRITION_DATA_TYPES = [
+  'dietaryEnergy',
+  'dietaryProtein',
+  'dietaryCarbs',
+  'dietaryFat',
+  'dietaryWater',
+  'dietaryFiber',
+  'dietarySugar',
+];
+
 /**
  * Hook to fetch and manage nutrition data
  * @param {Object} options - Options for data fetching
@@ -16,17 +26,6 @@ export function useNutritionData(options = {}) {
     fetchFromHealth = true,
     period = 'day',
   } = options;
-
-  // Define the nutrition data types to fetch from Apple Health
-  const nutritionDataTypes = [
-    'dietaryEnergy',
-    'dietaryProtein',
-    'dietaryCarbs',
-    'dietaryFat',
-    'dietaryWater',
-    'dietaryFiber',
-    'dietarySugar',
-  ];
 
   // State for nutrition data
   const [nutritionData, setNutritionData] = useState(() => {
@@ -48,14 +47,11 @@ export function useNutritionData(options = {}) {
 
   // Use Apple Health hook to fetch all nutrition data types
   const { 
-    data: healthData,
+    healthData,
     isAvailable: isHealthAvailable, 
-    isAuthorized: isHealthAuthorized,
+    hasPermission: isHealthAuthorized,
     refreshData: refreshHealthData
-  } = useAppleHealth(nutritionDataTypes, period, { 
-    observe: true,
-    autoRefresh: false
-  });
+  } = useAppleHealth(NUTRITION_DATA_TYPES, period);
 
   // Process data from Apple Health and update nutrition state
   useEffect(() => {
@@ -67,41 +63,42 @@ export function useNutritionData(options = {}) {
         const processedData = processNutritionData(healthData);
         
         // Merge with existing data for goals and other metadata
-        const newData = {
-          ...nutritionData,
-          calories: { 
-            consumed: processedData.calories || 0, 
-            goal: nutritionData.calories.goal 
-          },
-          protein: { 
-            consumed: processedData.protein || 0, 
-            goal: nutritionData.protein.goal 
-          },
-          carbs: { 
-            consumed: processedData.carbs || 0, 
-            goal: nutritionData.carbs.goal 
-          },
-          fat: { 
-            consumed: processedData.fat || 0, 
-            goal: nutritionData.fat.goal 
-          },
-          water: { 
-            consumed: processedData.water || 0, 
-            goal: nutritionData.water.goal 
-          },
-          fiber: { 
-            consumed: processedData.fiber || 0, 
-            goal: nutritionData.fiber.goal 
-          },
-          sugar: { 
-            consumed: processedData.sugar || 0, 
-            goal: nutritionData.sugar.goal 
-          },
-          meals: processedData.meals || nutritionData.meals
-        };
-        
-        setNutritionData(newData);
-        saveToStorage(STORAGE_KEYS.NUTRITION_DATA, newData);
+        setNutritionData((prevData) => {
+          const newData = {
+            ...prevData,
+            calories: { 
+              consumed: processedData.calories || 0, 
+              goal: prevData.calories.goal 
+            },
+            protein: { 
+              consumed: processedData.protein || 0, 
+              goal: prevData.protein.goal 
+            },
+            carbs: { 
+              consumed: processedData.carbs || 0, 
+              goal: prevData.carbs.goal 
+            },
+            fat: { 
+              consumed: processedData.fat || 0, 
+              goal: prevData.fat.goal 
+            },
+            water: { 
+              consumed: processedData.water || 0, 
+              goal: prevData.water.goal 
+            },
+            fiber: { 
+              consumed: processedData.fiber || 0, 
+              goal: prevData.fiber.goal 
+            },
+            sugar: { 
+              consumed: processedData.sugar || 0, 
+              goal: prevData.sugar.goal 
+            },
+            meals: processedData.meals || prevData.meals
+          };
+          saveToStorage(STORAGE_KEYS.NUTRITION_DATA, newData);
+          return newData;
+        });
         setLastUpdated(new Date());
       } catch (err) {
         console.error("Error processing nutrition data from health:", err);
@@ -112,9 +109,7 @@ export function useNutritionData(options = {}) {
     } else {
       setIsLoading(false);
     }
-  }, [healthData, fetchFromHealth, nutritionData.calories.goal, nutritionData.protein.goal, 
-      nutritionData.carbs.goal, nutritionData.fat.goal, nutritionData.water.goal,
-      nutritionData.fiber.goal, nutritionData.sugar.goal]);
+  }, [healthData, fetchFromHealth]);
 
   // Function to update nutrition data manually
   const updateNutritionData = useCallback((data) => {

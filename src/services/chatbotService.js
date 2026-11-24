@@ -1,4 +1,4 @@
-// This service integrates the fitness advisor chatbot with the knowledge base
+// This service integrates the fitness advisor chatbot with the knowledge base and optional AI LLM APIs
 
 import { 
   getKnowledgeBase, 
@@ -6,9 +6,112 @@ import {
   getPersonalizedRecommendations,
   getRelatedEntries,
   isKnowledgeBaseInitialized,
-  initializeFromDirectory
+  initializeFromFiles,
+  initializeFromDirectory,
+  loadDefaultKnowledgeBase
 } from './knowledgeBaseService';
 import { processEnhancementMetrics } from './healthDataProcessor';
+import { getFromStorage, saveToStorage } from '../utils/storageUtils';
+
+const AI_CONFIG_KEY = 'ai-advisor-config';
+const CHAT_HISTORY_KEY = 'ai-advisor-history';
+const MAX_HISTORY_MESSAGES = 12;
+const MAX_REQUESTS_PER_MINUTE = 15;
+const requestTimestamps = [];
+
+/**
+ * Get current AI provider configuration (localStorage overrides env vars)
+ */
+export function getAIConfig() {
+  const stored = getFromStorage(AI_CONFIG_KEY, null) || {};
+  const envOpenAI = process.env.REACT_APP_OPENAI_API_KEY || process.env.REACT_APP_AI_API_KEY || '';
+  const envAnthropic = process.env.REACT_APP_ANTHROPIC_API_KEY || '';
+
+  const provider =
+    stored.provider ||
+    process.env.REACT_APP_AI_PROVIDER ||
+    (envOpenAI ? 'openai' : envAnthropic ? 'anthropic' : 'local');
+
+  const apiKey =
+    stored.apiKey !== undefined
+      ? stored.apiKey
+      : provider === 'anthropic'
+      ? envAnthropic
+      : envOpenAI;
+
+  const model =
+    stored.model ||
+    (provider === 'anthropic' ? 'claude-3-5-sonnet-20241022' : 'gpt-4o-mini');
+
+  const endpoint =
+    stored.endpoint ||
+    (provider === 'anthropic'
+      ? 'https://api.anthropic.com/v1/messages'
+      : 'https://api.openai.com/v1/chat/completions');
+
+  return { provider, apiKey, model, endpoint };
+}
+
+/**
+ * Save AI provider configuration
+ */
+export function configureAI(config) {
+  const current = getAIConfig();
+  const next = { ...current, ...config };
+  saveToStorage(AI_CONFIG_KEY, next);
+  return next;
+}
+
+/**
+ * Sliding-window rate limiter (per minute)
+ */
+export function checkRateLimit() {
+  const now = Date.now();
+  while (requestTimestamps.length > 0 && now - requestTimestamps[0] > 60000) {
+    requestTimestamps.shift();
+  }
+  if (requestTimestamps.length >= MAX_REQUESTS_PER_MINUTE) {
+    return { allowed: false, retryAfterMs: 60000 - (now - requestTimestamps[0]) };
+  }
+  requestTimestamps.push(now);
+  return { allowed: true, retryAfterMs: 0 };
+}
+
+/**
+ * Approximate token-budget trimmer (~4 characters per token)
+ */
+export function trimToTokenBudget(text = '', maxTokens = 600) {
+  const maxChars = maxTokens * 4;
+  if (!text || text.length <= maxChars) return text || '';
+  return `${text.slice(0, maxChars)}...`;
+}
+
+/**
+ * Retrieve persisted conversation history
+ */
+export function getConversationHistory() {
+  const history = getFromStorage(CHAT_HISTORY_KEY, []);
+  return Array.isArray(history) ? history : [];
+}
+
+/**
+ * Append a message turn to conversation history (capped at MAX_HISTORY_MESSAGES)
+ */
+function appendConversationHistory(role, content) {
+  const history = getConversationHistory();
+  const updated = [...history, { role, content, timestamp: new Date().toISOString() }].slice(
+    -MAX_HISTORY_MESSAGES
+  );
+  saveToStorage(CHAT_HISTORY_KEY, updated);
+  return updated;
+}
+
+/**
+ * Clear persisted conversation history
+ */
+export function clearConversationHistory() {
+  saveToStorage(CHAT_HISTORY_KEY, []);
+}
 
 // Pattern matching responses for when no knowledge base is available
 const fallbackResponses = {
@@ -43,7 +146,7 @@ export async function initializeKnowledgeBaseFromFiles(files) {
       return false;
     }
     
-    await initializeFromDirectory(files);
+    await initializeFromFiles(files);
     return true;
   } catch (error) {
     console.error('Failed to initialize knowledge base from files:', error);
@@ -359,143 +462,213 @@ function generateKnowledgeBasedResponse(query, userData, userGoals) {
 }
 
 /**
- * Generate fitness advice based on user's query and health data
+ * Build a token-budgeted system prompt combining user biometrics, goals, and top KB entries.
+ */
+function buildSystemPrompt(userData, userGoals, relevantEntries = []) {
+  const metricsSummary = userData?.enhancementMetrics
+    ? JSON.stringify({
+        enhancementScores: userData.enhancementMetrics.enhancementScores,
+        individualMetrics: userData.enhancementMetrics.individualMetrics,
+        cardiovascular: userData.enhancementMetrics.cardiovascular,
+        sleep: userData.enhancementMetrics.sleep,
+      })
+    : 'No biometric data synced yet.';
+
+  const nutritionSummary = userData?.nutritionData
+    ? JSON.stringify({
+        calories: userData.nutritionData.calories,
+        protein: userData.nutritionData.protein,
+        carbs: userData.nutritionData.carbs,
+        fat: userData.nutritionData.fat,
+        water: userData.nutritionData.water,
+      })
+    : 'No nutrition logged today.';
+
+  const goalsSummary = userGoals ? JSON.stringify(userGoals) : 'No specific goals configured.';
+
+  const kbContext =
+    relevantEntries.length > 0
+      ? relevantEntries
+          .map(
+            (entry) =>
+              `[${entry.id}] ${entry.title}\n${trimToTokenBudget(entry.content || entry.summary || '', 300)}`
+          )
+          .join('\n\n')
+      : 'No matching knowledge base entries found.';
+
+  return trimToTokenBudget(
+    `You are NEO•VITRU's evidence-based fitness and human optimization advisor.
+Provide concise, actionable, science-backed guidance tailored to the user's biometrics, goals, and knowledge base context. Cite relevant studies or knowledge base IDs when applicable.
+
+USER BIOMETRICS:
+${metricsSummary}
+
+USER NUTRITION:
+${nutritionSummary}
+
+USER GOALS:
+${goalsSummary}
+
+KNOWLEDGE BASE CONTEXT:
+${kbContext}`,
+    1600
+  );
+}
+
+/**
+ * Call configured external AI provider (OpenAI-compatible or Anthropic Claude)
+ */
+async function callAIProvider(config, systemPrompt, history, query) {
+  const recentHistory = history
+    .slice(-6)
+    .map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: trimToTokenBudget(m.content, 200) }));
+
+  if (config.provider === 'anthropic') {
+    const response = await fetch(config.endpoint, {
+      method: 'POST',
+      headers: {
+        'x-api-key': config.apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: config.model,
+        max_tokens: 700,
+        system: systemPrompt,
+        messages: [...recentHistory, { role: 'user', content: query }],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Anthropic API error (${response.status})`);
+    }
+    const data = await response.json();
+    const content = data?.content?.[0]?.text;
+    if (!content) throw new Error('Empty response from Anthropic API');
+    return content;
+  }
+
+  // Default: OpenAI-compatible chat completions endpoint
+  const response = await fetch(config.endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: config.model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...recentHistory,
+        { role: 'user', content: query },
+      ],
+      max_tokens: 700,
+      temperature: 0.4,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI API error (${response.status})`);
+  }
+  const data = await response.json();
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content) throw new Error('Empty response from OpenAI API');
+  return content;
+}
+
+/**
+ * Generate fitness advice based on user's query, health data, goals, and knowledge base.
+ * Uses configured AI provider when available and falls back to local KB retrieval.
  * @param {string} query - The user's question
  * @param {Object} userData - User health data
  * @param {Object} userGoals - User goals data
- * @returns {Promise<Object>} - Response object with role, content, and references
+ * @returns {Promise<Object>} - Response object with role, content, references, and source metadata
  */
 export const generateFitnessAdvice = async (query, userData, userGoals) => {
-  // Check if knowledge base is initialized
-  const isKnowledgeReady = isKnowledgeBaseReady();
-  
+  const rateCheck = checkRateLimit();
+  if (!rateCheck.allowed) {
+    const seconds = Math.max(1, Math.ceil(rateCheck.retryAfterMs / 1000));
+    return {
+      role: 'assistant',
+      content: `Rate limit reached. Please wait ${seconds}s before sending another query.`,
+    };
+  }
+
+  // Ensure the pre-indexed FitLib knowledge base is loaded
+  if (!isKnowledgeBaseReady()) {
+    await loadDefaultKnowledgeBase();
+  }
+
   // Process user data if needed
-  let processedUserData = { ...userData };
-  
+  const processedUserData = { ...(userData || {}) };
   if (userData?.healthData && !userData.enhancementMetrics) {
     processedUserData.enhancementMetrics = processEnhancementMetrics(userData.healthData);
   }
-  
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Generate response based on knowledge base or fallback
-      const response = isKnowledgeReady 
-        ? generateKnowledgeBasedResponse(query, processedUserData, userGoals)
-        : (() => {
-            console.warn('Knowledge base not initialized, using fallback responses');
-            const lowerQuery = query.toLowerCase();
-            
-            if (lowerQuery.includes('handstand') || lowerQuery.includes('push')) {
-              return fallbackResponses.handstand;
-            } else if (lowerQuery.includes('run') || lowerQuery.includes('mile') || lowerQuery.includes('cardio')) {
-              return fallbackResponses.run;
-            } else if (lowerQuery.includes('diet') || lowerQuery.includes('nutrition') || lowerQuery.includes('food')) {
-              return fallbackResponses.diet;
-            } else {
-              return fallbackResponses.default;
-            }
-          })();
-      
-      resolve({
-        role: 'assistant',
-        content: response.content,
-        references: response.references,
-        sourceEntryId: response.sourceEntryId,
-        sourceEntryTitle: response.sourceEntryTitle
-      });
-    }, 500); // Reduced processing delay
-  });
-};
 
-// For a real OpenAI/Claude integration, you would implement something like:
-/*
-export const generateWithAI = async (prompt, userData, userGoals) => {
-  try {
-    // Find relevant knowledge entries
-    const relevantEntries = findRelevantKnowledge(prompt, {
-      enhancementMetrics: userData?.enhancementMetrics,
-      sleep: userData?.sleepAnalysis,
-      nutrition: userData?.nutritionData,
-      goals: userGoals
-    }, 3);
-    
-    // Prepare user context for the AI
-    const userContext = {
-      healthMetrics: userData?.enhancementMetrics ? JSON.stringify(userData.enhancementMetrics) : "No data available",
-      sleepData: userData?.sleepAnalysis ? JSON.stringify(userData.sleepAnalysis) : "No data available",
-      nutritionData: userData?.nutritionData ? JSON.stringify(userData.nutritionData) : "No data available",
-      goals: userGoals ? JSON.stringify(userGoals) : "No specific goals set"
-    };
-    
-    // Format knowledge base entries for context
-    const knowledgeContext = relevantEntries.length > 0
-      ? relevantEntries.map(entry => `Entry: ${entry.title}\nContent: ${entry.content}\n\n`).join('')
-      : "No specific knowledge entries found for this query.";
-    
-    const systemPrompt = `You are a scientific fitness advisor for an advanced transhumanist fitness app. 
-    Provide evidence-based advice with scientific references. Use technical language with a futuristic tone.
-    
-    The user has the following health metrics:
-    ${userContext.healthMetrics}
-    
-    Sleep data:
-    ${userContext.sleepData}
-    
-    Nutrition data:
-    ${userContext.nutritionData}
-    
-    User goals:
-    ${userContext.goals}
-    
-    Knowledge base context:
-    ${knowledgeContext}
-    
-    Provide a personalized response that integrates the knowledge base information with the user's specific health data.
-    Include scientific research support for your recommendations.
-    Format each recommendation clearly and provide actionable steps.
-    Cite any references at the end in [Author, Year] format.`;
-    
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: systemPrompt
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        max_tokens: 800
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (!data.choices || data.choices.length === 0) {
-      throw new Error('Invalid response from AI service');
+  const userContext = {
+    enhancementMetrics: processedUserData.enhancementMetrics,
+    sleep: processedUserData.sleepAnalysis,
+    nutrition: processedUserData.nutritionData,
+    goals: userGoals,
+    habitData: processedUserData.habitData,
+  };
+
+  const relevantEntries = isKnowledgeBaseReady()
+    ? findRelevantKnowledge(query, userContext, 3)
+    : [];
+
+  const history = getConversationHistory();
+  appendConversationHistory('user', query);
+
+  // Attempt configured external AI provider if API key is present
+  const aiConfig = getAIConfig();
+  if (aiConfig.provider !== 'local' && aiConfig.apiKey) {
+    try {
+      const systemPrompt = buildSystemPrompt(processedUserData, userGoals, relevantEntries);
+      const aiText = await callAIProvider(aiConfig, systemPrompt, history, query);
+      const extractedRefs = extractReferences(aiText);
+      const kbRefs = relevantEntries.map((e) => e.title).filter(Boolean);
+      const references = [...new Set([...extractedRefs, ...kbRefs])].slice(0, 5);
+
+      appendConversationHistory('assistant', aiText);
+      return {
+        role: 'assistant',
+        content: aiText,
+        references: references.length > 0 ? references : undefined,
+        sourceEntryId: relevantEntries[0]?.id,
+        sourceEntryTitle: relevantEntries[0]?.title,
+        provider: aiConfig.provider,
+      };
+    } catch (error) {
+      console.warn('External AI API unavailable, falling back to local knowledge base:', error);
     }
-    
-    const aiResponse = data.choices[0].message.content;
-    
-    return {
-      role: 'assistant',
-      content: aiResponse,
-      references: extractReferences(aiResponse),
-      sourceEntryId: relevantEntries.length > 0 ? relevantEntries[0].id : undefined,
-      sourceEntryTitle: relevantEntries.length > 0 ? relevantEntries[0].title : undefined
-    };
-  } catch (error) {
-    console.error('AI API error:', error);
-    // Fall back to knowledge-based response
-    return generateKnowledgeBasedResponse(prompt, userData, userGoals);
   }
+
+  // Local Knowledge Base RAG fallback
+  const response = isKnowledgeBaseReady()
+    ? generateKnowledgeBasedResponse(query, processedUserData, userGoals)
+    : (() => {
+        const lowerQuery = query.toLowerCase();
+        if (lowerQuery.includes('handstand') || lowerQuery.includes('push')) {
+          return fallbackResponses.handstand;
+        }
+        if (lowerQuery.includes('run') || lowerQuery.includes('mile') || lowerQuery.includes('cardio')) {
+          return fallbackResponses.run;
+        }
+        if (lowerQuery.includes('diet') || lowerQuery.includes('nutrition') || lowerQuery.includes('food')) {
+          return fallbackResponses.diet;
+        }
+        return fallbackResponses.default;
+      })();
+
+  appendConversationHistory('assistant', response.content);
+
+  return {
+    role: 'assistant',
+    content: response.content,
+    references: response.references,
+    sourceEntryId: response.sourceEntryId,
+    sourceEntryTitle: response.sourceEntryTitle,
+    provider: 'local',
+  };
 };
-*/

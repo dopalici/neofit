@@ -1,8 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Environment, OrbitControls, useGLTF } from '@react-three/drei';
-import * as THREE from 'three';
-import { motion } from 'framer-motion';
+import { Environment, useGLTF } from '@react-three/drei';
 import { useNavigate } from 'react-router-dom';
 
 // Import your model
@@ -30,18 +28,8 @@ function LandingModel() {
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const audioRef = useRef(null);
-
-  useEffect(() => {
-    // Preload the audio
-    audioRef.current = new Audio('/audio/transhuman.mp3');
-    audioRef.current.volume = 0.5;
-  }, []);
 
   const handleStart = () => {
-    if (audioRef.current) {
-      audioRef.current.play();
-    }
     navigate('/dashboard');
   };
 

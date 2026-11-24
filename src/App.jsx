@@ -1,102 +1,88 @@
 // src/App.jsx
-import React, { useEffect, useState } from "react";
-import { fetchHealthData } from "./services/healthService"; // Assumes this fetches all needed health data
-import { fetchNutritionData } from "./services/nutritionService"; // Assumes this fetches all needed nutrition data
-import {
-  getHabitData,
-  recordCheckIn,
-  STORAGE_KEYS,
-} from "./utils/storageUtils";
-// Removed unused recharts imports: BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend
-// If charts are implemented later, re-import the necessary components.
+import React, { useEffect, useMemo, useState } from "react";
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import Dashboard from "./components/dashboard/Dashboard";
 import LandingPage from "./components/landing/LandingPage";
 import HealthDataTest from "./components/HealthDataTest";
+import ErrorBoundary from "./components/ui/ErrorBoundary";
+import { fetchHealthData } from "./services/healthService";
+import {
+  addMeal as logMealToService,
+  addWater as logWaterToService,
+  fetchNutritionData,
+} from "./services/nutritionService";
+import { processEnhancementMetrics } from "./services/healthDataProcessor";
+import {
+  getFromStorage,
+  getHabitData,
+  recordCheckIn,
+  saveToStorage,
+  STORAGE_KEYS,
+} from "./utils/storageUtils";
+
+const USER_GOALS_KEY = "user-goals";
+
+const DEFAULT_USER_GOALS = {
+  handstandPushup: {
+    name: "VERTICAL INVERSION PROTOCOL",
+    type: "strength",
+    progress: 65.2,
+    startDate: "2025-03-28",
+    targetDate: "2025-05-17",
+  },
+  fourMinuteMile: {
+    name: "SUB-4 VELOCITY THRESHOLD",
+    type: "endurance",
+    progress: 38.7,
+    startDate: "2025-02-14",
+    targetDate: "2025-08-27",
+  },
+};
 
 function App() {
-  // const [showIntegrationModal, setShowIntegrationModal] = useState(false);
   const [isDataFetching, setIsDataFetching] = useState(false);
   const [healthData, setHealthData] = useState(null);
   const [nutritionData, setNutritionData] = useState(null);
   const [habitData, setHabitData] = useState(null);
+  const [userGoals, setUserGoals] = useState(() =>
+    getFromStorage(USER_GOALS_KEY, DEFAULT_USER_GOALS)
+  );
 
-  // Mock user data for body model and metrics
-  const userData = {
-    metrics: {
-      symmetry: 96.2,
-      potential: 71.8,
-      heartRate: 64,
-      vo2max: 48.3,
-    },
-    milestones: {
-      strength: 78,
-      cardio: 82,
-    },
-    level: 12,
-    xp: 2450,
-    nextLevelXp: 3000,
-  };
-
-  // Mock user goals
-  const userGoals = {
-    handstandPushup: {
-      name: "VERTICAL INVERSION PROTOCOL",
-      type: "strength",
-      progress: 65.2,
-      startDate: "2025-03-28",
-      targetDate: "2025-05-17",
-    },
-    fourMinuteMile: {
-      name: "SUB-4 VELOCITY THRESHOLD",
-      type: "endurance",
-      progress: 38.7,
-      startDate: "2025-02-14",
-      targetDate: "2025-08-27",
-    },
-  };
+  // Derive biometric summary metrics dynamically from real health data
+  const userData = useMemo(() => {
+    const processed = processEnhancementMetrics(healthData);
+    return {
+      metrics: {
+        symmetry: processed.enhancementScores?.symmetry ?? null,
+        potential: processed.enhancementScores?.potential ?? null,
+        efficiency: processed.enhancementScores?.efficiency ?? null,
+        recovery: processed.enhancementScores?.recovery ?? null,
+        heartRate: healthData?.heartRate?.current ?? null,
+        vo2max: healthData?.vo2Max?.current ?? null,
+      },
+      milestones: {
+        strength: processed.individualMetrics?.forceOutput?.score || 0,
+        cardio: processed.individualMetrics?.enduranceMatrix?.score || 0,
+      },
+    };
+  }, [healthData]);
 
   // Connected apps status
   const [connectedApps, setConnectedApps] = useState({
-    appleHealth: true,
-    myFitnessPal: true,
-    strava: true,
-    whoop: false,
-    garmin: false,
+    appleHealth: false,
+    myFitnessPal: false,
+    strava: false,
   });
 
-  // --- Function to refresh all data ---
-  const refreshAllData = async () => {
-    console.log("Refreshing all data..."); // Debug log
-    setIsDataFetching(true);
-    try {
-      const [health, nutrition] = await Promise.all([
-        fetchHealthData(),
-        fetchNutritionData(),
-      ]);
-
-      console.log("Refreshed Data:", { health, nutrition }); // Debug log
-      setHealthData(health);
-      setNutritionData(nutrition);
-
-      // Reload habit data as well if needed after import
-      loadHabitData();
-
-      // Close the modal after successful import and refresh
-      // setShowIntegrationModal(false);
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-      // Consider showing an error message to the user
-    } finally {
-      setIsDataFetching(false);
-      console.log("Data refresh complete."); // Debug log
-    }
+  // Update and persist user goals
+  const handleUpdateGoals = (nextGoals) => {
+    setUserGoals(nextGoals);
+    saveToStorage(USER_GOALS_KEY, nextGoals);
   };
 
-  // Function to load habit data (extracted for reuse)
+  // Load habit data from localStorage
   const loadHabitData = () => {
     try {
-      // Make sure STORAGE_KEYS is defined correctly, likely from storageUtils or dataImportService
       const streakData = getHabitData(STORAGE_KEYS.STREAK_DATA);
       const checkInsData = getHabitData(STORAGE_KEYS.CHECK_INS);
       const rewardsData = getHabitData(STORAGE_KEYS.CLAIMED_REWARDS);
@@ -111,18 +97,43 @@ function App() {
     }
   };
 
-  // Fetch initial data
+  // Refresh all health, nutrition, and habit data
+  const refreshAllData = async () => {
+    setIsDataFetching(true);
+    try {
+      const [health, nutrition] = await Promise.all([
+        fetchHealthData(true),
+        fetchNutritionData(true),
+      ]);
+
+      setHealthData(health);
+      setNutritionData(nutrition);
+      if (health?.source === "Apple HealthKit") {
+        setConnectedApps((prev) => ({ ...prev, appleHealth: true }));
+      }
+      loadHabitData();
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setIsDataFetching(false);
+    }
+  };
+
+  // Fetch initial data on mount
   useEffect(() => {
     const loadInitialData = async () => {
       setIsDataFetching(true);
       try {
         const [health, nutrition] = await Promise.all([
-          fetchHealthData(),
-          fetchNutritionData(),
+          fetchHealthData(false),
+          fetchNutritionData(false),
         ]);
 
         setHealthData(health);
         setNutritionData(nutrition);
+        if (health?.source === "Apple HealthKit") {
+          setConnectedApps((prev) => ({ ...prev, appleHealth: true }));
+        }
       } catch (error) {
         console.error("Error loading initial data:", error);
       } finally {
@@ -131,23 +142,41 @@ function App() {
     };
 
     loadInitialData();
-    loadHabitData(); // Load habit data initially too
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Added eslint disable comment for missing dependency if loadHabitData isn't memoized
+    loadHabitData();
+  }, []);
 
-  // Removed unused function syncHealthData
-  // const syncHealthData = async () => { ... };
-
-  // Function to sync Nutrition data (kept as it's used by NutritionPanel)
+  // Sync nutrition data
   const syncNutritionData = async () => {
     setIsDataFetching(true);
     try {
-      const data = await fetchNutritionData();
+      const data = await fetchNutritionData(true);
       setNutritionData(data);
     } catch (error) {
       console.error("Error syncing nutrition data:", error);
     } finally {
       setIsDataFetching(false);
+    }
+  };
+
+  // Log a meal and persist via nutritionService
+  const handleAddMeal = async (meal) => {
+    try {
+      const result = await logMealToService(meal);
+      if (result?.nutritionData) {
+        setNutritionData(result.nutritionData);
+      }
+    } catch (error) {
+      console.error("Error logging meal:", error);
+    }
+  };
+
+  // Log water intake and persist via nutritionService
+  const handleAddWater = async (liters = 0.25) => {
+    try {
+      const updated = await logWaterToService(liters);
+      setNutritionData(updated);
+    } catch (error) {
+      console.error("Error logging water:", error);
     }
   };
 
@@ -157,21 +186,16 @@ function App() {
       ...prev,
       [app]: !prev[app],
     }));
-    // Potentially trigger a data sync/refresh here if needed when toggling
-    // refreshAllData(); // Uncomment if you want to refresh data on toggle
   };
 
   // Handle daily check-in
   const handleCheckIn = () => {
     try {
-      const result = recordCheckIn(); // Assuming recordCheckIn is imported correctly
+      const result = recordCheckIn();
       if (!result.alreadyCompleted) {
-        // Reload habit data to reflect changes
         loadHabitData();
 
-        // Show celebration for milestones
         if (result.isMilestone) {
-          // In a real app, you'd show a nice animation here
           alert(
             `Congratulations! You've reached a ${result.newStreak}-day streak!`
           );
@@ -185,34 +209,37 @@ function App() {
   };
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/landing" element={<LandingPage />} />
-        <Route path="/health-test" element={<HealthDataTest />} />
-        <Route 
-          path="/dashboard" 
-          element={
-            <Dashboard 
-              userData={userData}
-              healthData={healthData}
-              nutritionData={nutritionData}
-              habitData={habitData}
-              userGoals={userGoals}
-              connectedApps={connectedApps}
-              isDataFetching={isDataFetching}
-              onCheckIn={handleCheckIn}
-              onToggleConnection={toggleAppConnection}
-              onRefreshData={refreshAllData}
-              onSyncNutrition={syncNutritionData}
-            />
-          } 
-        />
-        <Route 
-          path="/" 
-          element={<LandingPage />} 
-        />
-      </Routes>
-    </Router>
+    <ErrorBoundary fallbackTitle="APPLICATION ERROR">
+      <Router>
+        <Routes>
+          <Route path="/landing" element={<LandingPage />} />
+          <Route path="/health-test" element={<HealthDataTest />} />
+          <Route
+            path="/dashboard"
+            element={
+              <Dashboard
+                userData={userData}
+                healthData={healthData}
+                nutritionData={nutritionData}
+                habitData={habitData}
+                userGoals={userGoals}
+                connectedApps={connectedApps}
+                isDataFetching={isDataFetching}
+                onCheckIn={handleCheckIn}
+                onToggleConnection={toggleAppConnection}
+                onRefreshData={refreshAllData}
+                onSyncNutrition={syncNutritionData}
+                onAddMeal={handleAddMeal}
+                onAddWater={handleAddWater}
+                onUpdateGoals={handleUpdateGoals}
+                onWorkoutLogged={refreshAllData}
+              />
+            }
+          />
+          <Route path="/" element={<LandingPage />} />
+        </Routes>
+      </Router>
+    </ErrorBoundary>
   );
 }
 

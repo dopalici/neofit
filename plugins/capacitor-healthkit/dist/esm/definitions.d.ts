@@ -351,4 +351,3 @@ export interface TrendAnalysis {
         nextMonth?: number;
     };
 }
-export * from './definitions';

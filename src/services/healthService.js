@@ -1,148 +1,297 @@
-// This service would integrate with Apple Health via HealthKit
-import { getFromStorage } from '../utils/storageUtils';
-import { STORAGE_KEYS } from '../services/dataImportService';
-// Mock data for development
-const mockHealthData = {
-  heartRate: { current: 62, min: 58, max: 118, avg: 72, lastUpdated: '07:42:15' },
-  steps: { today: 6834, goal: 10000, lastUpdated: '07:42:15' },
-  sleep: { lastNight: '6h 48m', deepSleep: '1h 32m', rem: '2h 15m', efficiency: 87 },
-  vo2Max: { current: 48.3, previous: 47.8, lastUpdated: '2 days ago' },
-  calories: { burned: 1432, goal: 2800, lastUpdated: '07:42:15' },
-  weight: { current: 78.3, previous: 78.7, lastUpdated: '06:21:33' }
-};
+// src/services/healthService.js
+// Unified health data service connecting Apple HealthKit and imported/local storage data.
+import { getFromStorage, STORAGE_KEYS as HABIT_STORAGE_KEYS } from "../utils/storageUtils";
+import { STORAGE_KEYS } from "./dataImportService";
+import appleHealthService from "./appleHealthService";
 
-// or HealthKit JS Bridge in a hybrid app context
+/**
+ * Fetch health data from Apple HealthKit (when native & authorized) or local imported storage.
+ * Never returns fabricated mock metrics when no real data exists.
+ */
+export const fetchHealthData = async (forceRefresh = false) => {
+  // 1. Try native Apple HealthKit first
+  try {
+    const available = await appleHealthService.initialize();
+    if (available) {
+      const authorized = appleHealthService.hasPermissions || (await appleHealthService.requestPermissions());
+      if (authorized) {
+        const [
+          heartRateRes,
+          stepsRes,
+          sleepRes,
+          workoutsRes,
+          nutritionRes,
+          weightArr,
+          vo2MaxArr,
+          hrvArr,
+          spo2Arr,
+          caloriesArr,
+          basalArr,
+        ] = await Promise.all([
+          appleHealthService.fetchHeartRate("week", forceRefresh),
+          appleHealthService.fetchSteps("week", forceRefresh),
+          appleHealthService.fetchSleep("week", forceRefresh),
+          appleHealthService.fetchWorkouts("month", forceRefresh),
+          appleHealthService.fetchNutrition("day", forceRefresh),
+          appleHealthService.fetchHealthData("weight", "month", forceRefresh),
+          appleHealthService.fetchHealthData("vo2Max", "month", forceRefresh),
+          appleHealthService.fetchHealthData("heartRateVariability", "week", forceRefresh),
+          appleHealthService.fetchHealthData("oxygenSaturation", "week", forceRefresh),
+          appleHealthService.fetchHealthData("calories", "week", forceRefresh),
+          appleHealthService.fetchHealthData("basalEnergy", "week", forceRefresh),
+        ]);
 
-export const fetchHealthData = async () => {
-  // Simulate API delay
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Try to get real data from storage first
-      const heartRate = getFromStorage(STORAGE_KEYS.HEART_RATE_DATA, []);
-      const steps = getFromStorage(STORAGE_KEYS.STEP_COUNT_DATA, []);
-      const weight = getFromStorage(STORAGE_KEYS.WEIGHT_DATA, []);
-      const sleep = getFromStorage(STORAGE_KEYS.SLEEP_DATA, []);
-      const vo2Max = getFromStorage(STORAGE_KEYS.VO2MAX_DATA, []);
-      const workouts = getFromStorage(STORAGE_KEYS.WORKOUT_DATA, []);
-      const nutrition = getFromStorage(STORAGE_KEYS.NUTRITION_DATA, []);
-      
-      // Check if we have real data
-      const hasRealData = heartRate.length > 0 || steps.length > 0 || 
-                           weight.length > 0 || sleep.length > 0 ||
-                           vo2Max.length > 0 || workouts.length > 0 ||
-                           nutrition.length > 0;
-      
-      if (hasRealData) {
-        // Process the real data into the format expected by components
-        const processedData = processRealHealthData(heartRate, steps, weight, sleep, vo2Max, workouts, nutrition);
-        resolve(processedData);
-      } else {
-        // Fall back to mock data if no real data is available
-        resolve(mockHealthData);
+        const hasHealthKitData =
+          heartRateRes.data.length > 0 ||
+          stepsRes.data.length > 0 ||
+          sleepRes.data.length > 0 ||
+          workoutsRes.data.length > 0 ||
+          weightArr.length > 0 ||
+          vo2MaxArr.length > 0;
+
+        if (hasHealthKitData) {
+          return buildHealthDataSnapshot({
+            heartRate: heartRateRes.data,
+            restingHeartRate: heartRateRes.restingData || [],
+            heartRateVariability: hrvArr,
+            oxygenSaturation: spo2Arr,
+            steps: stepsRes.data,
+            weight: weightArr,
+            sleep: sleepRes.data,
+            vo2Max: vo2MaxArr,
+            workouts: workoutsRes.data,
+            calories: caloriesArr,
+            basalEnergy: basalArr,
+            nutrition: nutritionRes.raw || [],
+            source: "Apple HealthKit",
+          });
+        }
       }
-    }, 300); // Reduced delay for better UX
+    }
+  } catch (error) {
+    console.warn("HealthKit fetch unavailable, checking local imported data:", error);
+  }
+
+  // 2. Fall back to real imported health data + manually logged workouts from localStorage
+  const heartRate = getFromStorage(STORAGE_KEYS.HEART_RATE_DATA, []);
+  const steps = getFromStorage(STORAGE_KEYS.STEP_COUNT_DATA, []);
+  const weight = getFromStorage(STORAGE_KEYS.WEIGHT_DATA, []);
+  const sleep = getFromStorage(STORAGE_KEYS.SLEEP_DATA, []);
+  const vo2Max = getFromStorage(STORAGE_KEYS.VO2MAX_DATA, []);
+  const importedWorkouts = getFromStorage(STORAGE_KEYS.WORKOUT_DATA, []);
+  const manualWorkouts = getFromStorage(HABIT_STORAGE_KEYS.WORKOUT_LOGS, []);
+  const workouts = [...manualWorkouts, ...importedWorkouts];
+  const nutrition = getFromStorage(STORAGE_KEYS.NUTRITION_DATA, []);
+
+  const hasStoredData =
+    heartRate.length > 0 ||
+    steps.length > 0 ||
+    weight.length > 0 ||
+    sleep.length > 0 ||
+    vo2Max.length > 0 ||
+    workouts.length > 0 ||
+    (Array.isArray(nutrition) && nutrition.length > 0);
+
+  return buildHealthDataSnapshot({
+    heartRate,
+    steps,
+    weight,
+    sleep,
+    vo2Max,
+    workouts,
+    nutrition: Array.isArray(nutrition) ? nutrition : [],
+    source: hasStoredData ? "Imported Data" : "none",
   });
 };
 
-// New function to process real health data
-function processRealHealthData(heartRate, steps, weight, sleep, vo2Max, workouts, nutrition = []) {
-  // Get the most recent data for each type
-  const getLatest = (arr) => arr.length > 0 ? 
-    arr.sort((a, b) => new Date(b.date) - new Date(a.date))[0] : null;
-  
-  const latestHeartRate = getLatest(heartRate);
-  const latestSteps = getLatest(steps);
-  const latestWeight = getLatest(weight);
-  const latestSleep = getLatest(sleep);
-  const latestVo2Max = getLatest(vo2Max);
-  
-  // Get the previous weight measurement if available (for trend calculation)
-  let previousWeight = null;
-  if (weight.length > 1) {
-    const sortedWeight = [...weight].sort((a, b) => new Date(b.date) - new Date(a.date));
-    previousWeight = sortedWeight[1];
-  }
-  
-  // Process workout data to get recent workout statistics
-  const recentWorkouts = workouts.length > 0 ? 
-    workouts.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10) : [];
-  
+/**
+ * Transform raw validated health arrays into the normalized structure expected by UI panels
+ * and healthDataProcessor.
+ */
+function buildHealthDataSnapshot({
+  heartRate = [],
+  restingHeartRate = [],
+  heartRateVariability = [],
+  oxygenSaturation = [],
+  steps = [],
+  weight = [],
+  sleep = [],
+  vo2Max = [],
+  workouts = [],
+  calories = [],
+  basalEnergy = [],
+  nutrition = [],
+  source = "none",
+}) {
+  const sortNewest = (arr) =>
+    [...(Array.isArray(arr) ? arr : [])]
+      .filter((item) => item && item.date)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const sortedHR = sortNewest(heartRate);
+  const sortedRestingHR = sortNewest(restingHeartRate);
+  const sortedHRV = sortNewest(heartRateVariability);
+  const sortedSpO2 = sortNewest(oxygenSaturation);
+  const sortedSteps = sortNewest(steps);
+  const sortedWeight = sortNewest(weight);
+  const sortedSleep = sortNewest(sleep);
+  const sortedVo2Max = sortNewest(vo2Max);
+  const sortedWorkouts = sortNewest(workouts);
+  const sortedCalories = sortNewest(calories);
+  const sortedBasal = sortNewest(basalEnergy);
+  const sortedNutrition = Array.isArray(nutrition) ? sortNewest(nutrition) : [];
+
+  const latestHeartRate = sortedHR[0] || null;
+  const latestSteps = sortedSteps[0] || null;
+  const latestWeight = sortedWeight[0] || null;
+  const previousWeight = sortedWeight[1] || null;
+  const latestSleep = sortedSleep[0] || null;
+  const latestVo2Max = sortedVo2Max[0] || null;
+  const previousVo2Max = sortedVo2Max[1] || null;
+
+  const hrValues = sortedHR.map((item) => Number(item.value)).filter((v) => !Number.isNaN(v));
+  const recentWorkouts = sortedWorkouts.slice(0, 20);
+
   const workoutStats = {
-    count: workouts.length,
-    recentTypes: [...new Set(recentWorkouts.map(w => w.type))].slice(0, 5),
-    totalCalories: recentWorkouts.reduce((sum, w) => sum + (w.calories || 0), 0),
-    averageDuration: recentWorkouts.length > 0 ?
-      recentWorkouts.reduce((sum, w) => sum + w.duration, 0) / recentWorkouts.length : 0
+    count: sortedWorkouts.length,
+    recentTypes: [...new Set(recentWorkouts.map((w) => w.type))].slice(0, 5),
+    totalCalories: recentWorkouts.reduce((sum, w) => sum + (Number(w.calories) || 0), 0),
+    averageDuration:
+      recentWorkouts.length > 0
+        ? recentWorkouts.reduce((sum, w) => sum + (Number(w.duration) || 0), 0) /
+          recentWorkouts.length
+        : 0,
   };
-  
-  // Format the data to match what the components expect
+
+  const hasData = source !== "none";
+
+  const vo2Block = {
+    current: latestVo2Max ? Number(latestVo2Max.value) : null,
+    previous: previousVo2Max ? Number(previousVo2Max.value) : null,
+    lastUpdated: latestVo2Max ? formatDate(new Date(latestVo2Max.date)) : null,
+    data: sortedVo2Max,
+  };
+
   return {
+    hasData,
+    source,
+    lastSynced: hasData ? formatTime(new Date()) : null,
     heartRate: {
-      current: latestHeartRate ? latestHeartRate.value : 62,
-      min: Math.min(...heartRate.map(item => item.value), 58),
-      max: Math.max(...heartRate.map(item => item.value), 118),
-      avg: heartRate.length > 0 ? 
-        (heartRate.reduce((sum, item) => sum + item.value, 0) / heartRate.length).toFixed(1) : 72,
-      lastUpdated: latestHeartRate ? formatTime(new Date(latestHeartRate.date)) : '07:42:15',
-      data: heartRate // Include the full dataset for charts
+      current: latestHeartRate ? Number(latestHeartRate.value) : null,
+      min: hrValues.length > 0 ? Math.min(...hrValues) : null,
+      max: hrValues.length > 0 ? Math.max(...hrValues) : null,
+      avg:
+        hrValues.length > 0
+          ? Number((hrValues.reduce((sum, v) => sum + v, 0) / hrValues.length).toFixed(1))
+          : null,
+      lastUpdated: latestHeartRate ? formatTime(new Date(latestHeartRate.date)) : null,
+      data: sortedHR,
+    },
+    restingHeartRate: {
+      current: sortedRestingHR[0] ? Number(sortedRestingHR[0].value) : null,
+      data: sortedRestingHR,
+    },
+    heartRateVariability: {
+      current: sortedHRV[0] ? Number(sortedHRV[0].value) : null,
+      data: sortedHRV,
+    },
+    oxygenSaturation: {
+      current: sortedSpO2[0] ? Number(sortedSpO2[0].value) : null,
+      data: sortedSpO2,
     },
     steps: {
-      today: latestSteps ? latestSteps.value : 6834,
+      today: latestSteps ? Number(latestSteps.value) : null,
       goal: 10000,
-      lastUpdated: latestSteps ? formatTime(new Date(latestSteps.date)) : '07:42:15',
-      data: steps
+      lastUpdated: latestSteps ? formatTime(new Date(latestSteps.date)) : null,
+      data: sortedSteps,
     },
     sleep: {
-      lastNight: latestSleep ? `${latestSleep.value}h` : '6h 48m',
-      deepSleep: '1h 32m', // You might need more processing for these specialized values
-      rem: '2h 15m',
-      efficiency: 87,
-      data: sleep
+      lastNight: latestSleep ? `${Number(latestSleep.value).toFixed(1)}h` : null,
+      duration: latestSleep ? Number(latestSleep.value) : null,
+      efficiency: latestSleep?.sleepEfficiency ?? null,
+      lastUpdated: latestSleep ? formatDate(new Date(latestSleep.date)) : null,
+      data: sortedSleep,
     },
-    vo2Max: {
-      current: latestVo2Max ? latestVo2Max.value : 48.3,
-      previous: 47.8,
-      lastUpdated: latestVo2Max ? formatDate(new Date(latestVo2Max.date)) : '2 days ago',
-      data: vo2Max
-    },
+    vo2Max: vo2Block,
+    vo2max: vo2Block,
     weight: {
-      current: latestWeight ? latestWeight.value : 78.3,
-      previous: previousWeight ? previousWeight.value : 78.7,
-      trend: previousWeight && latestWeight ? 
-        (latestWeight.value - previousWeight.value).toFixed(1) : -0.4,
-      lastUpdated: latestWeight ? formatTime(new Date(latestWeight.date)) : '06:21:33',
-      data: weight
+      current: latestWeight ? Number(latestWeight.value) : null,
+      previous: previousWeight ? Number(previousWeight.value) : null,
+      trend:
+        previousWeight && latestWeight
+          ? Number((Number(latestWeight.value) - Number(previousWeight.value)).toFixed(1))
+          : null,
+      lastUpdated: latestWeight ? formatDate(new Date(latestWeight.date)) : null,
+      data: sortedWeight,
+    },
+    calories: {
+      burned: sortedCalories[0] ? Number(sortedCalories[0].value) : null,
+      data: sortedCalories,
+    },
+    basalEnergy: {
+      current: sortedBasal[0] ? Number(sortedBasal[0].value) : null,
+      data: sortedBasal,
     },
     workouts: {
       recent: recentWorkouts,
       stats: workoutStats,
-      data: workouts
+      data: sortedWorkouts,
     },
-    // Process nutrition data if available
     nutrition: {
-      data: nutrition,
-      recent: nutrition.length > 0 ? 
-        nutrition.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10) : [],
+      data: sortedNutrition,
+      recent: sortedNutrition.slice(0, 10),
       stats: {
-        count: nutrition.length,
-        avgCalories: nutrition.length > 0 ? 
-          (nutrition.reduce((sum, item) => sum + (item.calories || 0), 0) / nutrition.length).toFixed(0) : 0,
-        avgProtein: nutrition.length > 0 ? 
-          (nutrition.reduce((sum, item) => sum + (item.protein || 0), 0) / nutrition.length).toFixed(1) : 0,
-        avgCarbs: nutrition.length > 0 ? 
-          (nutrition.reduce((sum, item) => sum + (item.carbs || 0), 0) / nutrition.length).toFixed(1) : 0,
-        avgFat: nutrition.length > 0 ? 
-          (nutrition.reduce((sum, item) => sum + (item.fat || 0), 0) / nutrition.length).toFixed(1) : 0
-      }
-    }
+        count: sortedNutrition.length,
+        avgCalories:
+          sortedNutrition.length > 0
+            ? Math.round(
+                sortedNutrition.reduce((sum, item) => sum + (Number(item.calories) || 0), 0) /
+                  sortedNutrition.length
+              )
+            : 0,
+        avgProtein:
+          sortedNutrition.length > 0
+            ? Number(
+                (
+                  sortedNutrition.reduce((sum, item) => sum + (Number(item.protein) || 0), 0) /
+                  sortedNutrition.length
+                ).toFixed(1)
+              )
+            : 0,
+        avgCarbs:
+          sortedNutrition.length > 0
+            ? Number(
+                (
+                  sortedNutrition.reduce((sum, item) => sum + (Number(item.carbs) || 0), 0) /
+                  sortedNutrition.length
+                ).toFixed(1)
+              )
+            : 0,
+        avgFat:
+          sortedNutrition.length > 0
+            ? Number(
+                (
+                  sortedNutrition.reduce((sum, item) => sum + (Number(item.fat) || 0), 0) /
+                  sortedNutrition.length
+                ).toFixed(1)
+              )
+            : 0,
+      },
+    },
   };
 }
 
-// Helper functions for date formatting
 function formatTime(date) {
-  return date.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleTimeString("en-US", {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 function formatDate(date) {
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }

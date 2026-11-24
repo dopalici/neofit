@@ -1,9 +1,20 @@
 // src/components/dashboard/EnhancedNutritionPanel.jsx
 import React, { useState, useEffect } from 'react';
-import { RotateCw, PieChart, Calendar, TrendingUp, Plus, ChevronRight } from 'lucide-react';
+import { RotateCw, PieChart, Plus, ChevronRight, Search, Droplet } from 'lucide-react';
+import {
+  calculateCaloriesFromMacros,
+  searchFoodDatabase,
+} from '../../services/nutritionService';
 
-export default function EnhancedNutritionPanel({ nutritionData, onSyncNutrition, isSyncing, onAddMeal }) {
+export default function EnhancedNutritionPanel({
+  nutritionData,
+  onSyncNutrition,
+  isSyncing,
+  onAddMeal,
+  onAddWater,
+}) {
   const [localData, setLocalData] = useState({
+    source: 'none',
     calories: { consumed: 0, goal: 2200, lastUpdated: '' },
     protein: { consumed: 0, goal: 140, lastUpdated: '' },
     carbs: { consumed: 0, goal: 220, lastUpdated: '' },
@@ -12,6 +23,7 @@ export default function EnhancedNutritionPanel({ nutritionData, onSyncNutrition,
     meals: []
   });
   const [showAddMeal, setShowAddMeal] = useState(false);
+  const [foodQuery, setFoodQuery] = useState('');
   const [newMeal, setNewMeal] = useState({
     name: '',
     calories: '',
@@ -77,7 +89,6 @@ export default function EnhancedNutritionPanel({ nutritionData, onSyncNutrition,
         });
       }
     } catch (e) {
-      // If parsing fails, return the original string
       console.error("Error parsing time:", e);
     }
     
@@ -93,22 +104,44 @@ export default function EnhancedNutritionPanel({ nutritionData, onSyncNutrition,
     }));
   };
 
+  // Auto-fill form from built-in food database
+  const handleSelectFood = (food) => {
+    setNewMeal({
+      name: food.name,
+      calories: String(food.calories),
+      protein: String(food.protein),
+      carbs: String(food.carbs),
+      fat: String(food.fat),
+    });
+    setFoodQuery('');
+  };
+
   // Handle meal submission
   const handleSubmitMeal = (e) => {
     e.preventDefault();
     
-    // Create meal object and validate
+    const protein = parseInt(newMeal.protein, 10) || 0;
+    const carbs = parseInt(newMeal.carbs, 10) || 0;
+    const fat = parseInt(newMeal.fat, 10) || 0;
+    const rawCalories = parseInt(newMeal.calories, 10) || 0;
+    const calories =
+      rawCalories > 0
+        ? rawCalories
+        : calculateCaloriesFromMacros({ protein, carbs, fat });
+
     const mealToAdd = {
       name: newMeal.name.trim() || 'MEAL',
-      calories: parseInt(newMeal.calories) || 0,
-      protein: parseInt(newMeal.protein) || 0,
-      carbs: parseInt(newMeal.carbs) || 0,
-      fat: parseInt(newMeal.fat) || 0
+      calories,
+      protein,
+      carbs,
+      fat
     };
     
     // Only add if calories or macronutrients are specified
     if (mealToAdd.calories > 0 || mealToAdd.protein > 0 || mealToAdd.carbs > 0 || mealToAdd.fat > 0) {
-      onAddMeal(mealToAdd);
+      if (onAddMeal) {
+        onAddMeal(mealToAdd);
+      }
       
       // Reset form and close
       setNewMeal({
@@ -118,9 +151,17 @@ export default function EnhancedNutritionPanel({ nutritionData, onSyncNutrition,
         carbs: '',
         fat: ''
       });
+      setFoodQuery('');
       setShowAddMeal(false);
     }
   };
+
+  const foodSuggestions = searchFoodDatabase(foodQuery);
+  const sourceLabel =
+    localData?.source && localData.source !== 'none'
+      ? localData.source.toUpperCase()
+      : 'LOCAL LOG';
+  const hasNutritionSource = localData?.source && localData.source !== 'none';
 
   return (
     <div className="bg-gray-900 border border-cyan-800 rounded shadow-lg shadow-cyan-900/20 overflow-hidden">
@@ -128,14 +169,30 @@ export default function EnhancedNutritionPanel({ nutritionData, onSyncNutrition,
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-mono text-cyan-300">CELLULAR FUEL</h2>
           <div className="flex items-center">
-            <span className="text-xs text-cyan-600 font-mono mr-2">APPLE HEALTH</span>
-            <div className="h-4 w-4 bg-gray-800 rounded-full flex items-center justify-center" title="Apple Health Connected">
-              <div className="h-2 w-2 rounded-full bg-green-500"></div>
+            <span className="text-xs text-cyan-600 font-mono mr-2">{sourceLabel}</span>
+            <div
+              className="h-4 w-4 bg-gray-800 rounded-full flex items-center justify-center"
+              title={hasNutritionSource ? `Source: ${localData.source}` : 'No meals logged today'}
+            >
+              <div
+                className={`h-2 w-2 rounded-full ${
+                  hasNutritionSource ? 'bg-green-500' : 'bg-gray-500'
+                }`}
+              ></div>
             </div>
+            {onAddWater && (
+              <button
+                onClick={() => onAddWater(0.25)}
+                className="ml-2 text-cyan-500 hover:text-cyan-300 text-xs font-mono flex items-center"
+                title="Log +0.25L water"
+              >
+                <Droplet size={12} className="mr-0.5" />+0.25L
+              </button>
+            )}
             <button 
               onClick={onSyncNutrition}
               className="ml-2 text-cyan-500 hover:text-cyan-300 text-xs"
-              title="Sync with Apple Health">
+              title="Sync nutrition data">
               <RotateCw size={12} className={isSyncing ? 'animate-spin' : ''} />
             </button>
           </div>
@@ -266,6 +323,32 @@ export default function EnhancedNutritionPanel({ nutritionData, onSyncNutrition,
             {/* Add meal form */}
             {showAddMeal && (
               <form onSubmit={handleSubmitMeal} className="mb-3 bg-gray-950 p-3 rounded border border-cyan-900/50">
+                <div className="mb-3">
+                  <label className="text-xs text-cyan-600 font-mono flex items-center mb-1">
+                    <Search size={11} className="mr-1" /> QUICK-ADD FROM FOOD DATABASE
+                  </label>
+                  <input
+                    type="text"
+                    value={foodQuery}
+                    onChange={(e) => setFoodQuery(e.target.value)}
+                    placeholder="Search foods (e.g. chicken, oats, eggs)..."
+                    className="w-full bg-gray-900 text-cyan-300 border border-cyan-900 rounded px-2 py-1 text-xs font-mono mb-1.5"
+                  />
+                  {foodSuggestions.length > 0 && (
+                    <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                      {foodSuggestions.slice(0, 6).map((food) => (
+                        <button
+                          key={food.id}
+                          type="button"
+                          onClick={() => handleSelectFood(food)}
+                          className="text-[10px] font-mono bg-gray-900 hover:bg-cyan-900/40 text-cyan-400 border border-cyan-900 rounded px-2 py-0.5 transition-colors"
+                        >
+                          {food.name} ({food.calories} kcal)
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div>
                     <label className="text-xs text-cyan-600 font-mono block mb-1">MEAL NAME</label>

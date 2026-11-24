@@ -1,7 +1,7 @@
 // src/components/dashboard/SleepAnalysis.jsx
 import React, { useState, useEffect } from 'react';
 import { format, parseISO, isValid, subDays } from 'date-fns';
-import { Moon, TrendingUp, Clock, ArrowUp, ArrowDown, Brain, Zap, Activity, BarChart } from 'lucide-react';
+import { Moon, TrendingUp, Clock, ArrowUp, ArrowDown, Brain, Zap, Activity } from 'lucide-react';
 
 export default function SleepAnalysis({ sleepData }) {
   const [activeTab, setActiveTab] = useState('summary');
@@ -87,9 +87,6 @@ export default function SleepAnalysis({ sleepData }) {
     
     // Take recent entries for trend analysis (last 7 days)
     const recentEntries = sortedData.slice(0, 7);
-    
-    // Take entries for monthly trend (last 30 days)
-    const monthlyEntries = sortedData.slice(0, 30);
     
     // Generate the last 30 days if we don't have enough data
     const monthlyTrend = Array.from({ length: 30 }, (_, i) => {
@@ -666,12 +663,11 @@ export default function SleepAnalysis({ sleepData }) {
             <div className="text-sm text-cyan-400 font-mono mb-4">SLEEP QUALITY INSIGHTS</div>
             
             <div className="flex mb-4">
-              <div className="w-20 h-20 bg-gray-900 rounded-full flex flex-col items-center justify-center mr-4 border-4 
-                border-indigo-500 
-                ${processedData.efficiency >= 85 ? 'border-green-500' : 
-                  processedData.efficiency >= 70 ? 'border-yellow-500' : 
-                  'border-red-500'}"
-              >
+              <div className={`w-20 h-20 bg-gray-900 rounded-full flex flex-col items-center justify-center mr-4 border-4 ${
+                processedData.efficiency >= 85 ? 'border-green-500' : 
+                processedData.efficiency >= 70 ? 'border-yellow-500' : 
+                'border-red-500'
+              }`}>
                 <span className="text-xl font-bold text-cyan-300 font-mono">{processedData.efficiency}%</span>
                 <span className="text-xs text-cyan-600 font-mono">EFFICIENCY</span>
               </div>

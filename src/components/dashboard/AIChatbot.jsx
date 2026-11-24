@@ -1,22 +1,67 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Send, X, Book, BookOpen, Info, Zap } from 'lucide-react';
+import { Sparkles, Send, X, Book, BookOpen, Info, Zap, Settings, Trash2 } from 'lucide-react';
 import ChatMessage from '../chatbot/ChatMessage';
-import { generateFitnessAdvice, isKnowledgeBaseReady } from '../../services/chatbotService';
+import {
+  generateFitnessAdvice,
+  isKnowledgeBaseReady,
+  getAIConfig,
+  configureAI,
+  getConversationHistory,
+  clearConversationHistory,
+} from '../../services/chatbotService';
+import { loadDefaultKnowledgeBase } from '../../services/knowledgeBaseService';
 import { useIntegratedHealth } from '../../hooks/useIntegratedHealth';
 import { getLatestInsights } from '../../services/habitService';
 
-export default function AIChatbot() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      content: 'I am your personalized health advisor. How can I assist you today?'
-    }
-  ]);
+const DEFAULT_GREETING = {
+  role: 'assistant',
+  content: 'I am your personalized health advisor. How can I assist you today?',
+};
+
+export default function AIChatbot({ isOpen: externalIsOpen, onClose } = {}) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen || internalIsOpen : internalIsOpen;
+
+  const handleClose = () => {
+    setInternalIsOpen(false);
+    if (onClose) onClose();
+  };
+
+  const [messages, setMessages] = useState(() => {
+    const saved = getConversationHistory();
+    return saved.length > 0 ? [DEFAULT_GREETING, ...saved] : [DEFAULT_GREETING];
+  });
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showSourceInfo, setShowSourceInfo] = useState(null);
+  const [showConfig, setShowConfig] = useState(false);
+  const [kbReady, setKbReady] = useState(() => isKnowledgeBaseReady());
+  const [aiConfig, setAiConfig] = useState(() => getAIConfig());
   const messagesEndRef = useRef(null);
+
+  // Auto-load pre-indexed FitLib knowledge base
+  useEffect(() => {
+    let active = true;
+    loadDefaultKnowledgeBase().then(() => {
+      if (active) setKbReady(isKnowledgeBaseReady());
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSaveConfig = (e) => {
+    e.preventDefault();
+    const updated = configureAI(aiConfig);
+    setAiConfig(updated);
+    setShowConfig(false);
+  };
+
+  const handleClearHistory = () => {
+    clearConversationHistory();
+    setMessages([DEFAULT_GREETING]);
+    setShowSourceInfo(null);
+  };
   
   // Get user health data via the integrated health hook
   const {
@@ -126,7 +171,7 @@ export default function AIChatbot() {
   if (!isOpen) {
     return (
       <button 
-        onClick={() => setIsOpen(true)} 
+        onClick={() => setInternalIsOpen(true)} 
         className="fixed bottom-6 right-6 bg-gray-900 text-blue-400 border border-blue-400 rounded-full p-3 shadow-lg hover:bg-blue-500 hover:text-gray-900 transition-colors"
       >
         <Sparkles size={24} />
@@ -140,21 +185,108 @@ export default function AIChatbot() {
         <div className="flex items-center">
           <Book size={16} className="text-blue-400 mr-2" />
           <h3 className="text-blue-400 font-sans text-sm font-medium">
-            PERSONALIZED HEALTH ADVISOR
-            {isKnowledgeBaseReady() && (
+            ADVISOR AI
+            {kbReady && (
               <span className="ml-2 text-xs bg-blue-900 text-blue-200 rounded-full px-2 py-0.5">
                 KB Active
               </span>
             )}
+            {aiConfig.provider !== 'local' && aiConfig.apiKey && (
+              <span className="ml-1 text-xs bg-cyan-900 text-cyan-200 rounded-full px-2 py-0.5 uppercase">
+                {aiConfig.provider}
+              </span>
+            )}
           </h3>
         </div>
-        <button 
-          onClick={() => setIsOpen(false)}
-          className="text-blue-400 hover:text-blue-200"
-        >
-          <X size={18} />
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowConfig((prev) => !prev)}
+            className="text-blue-400 hover:text-blue-200"
+            title="Configure AI Provider"
+          >
+            <Settings size={15} />
+          </button>
+          <button
+            onClick={handleClearHistory}
+            className="text-blue-400 hover:text-red-400"
+            title="Clear Conversation History"
+          >
+            <Trash2 size={15} />
+          </button>
+          <button 
+            onClick={handleClose}
+            className="text-blue-400 hover:text-blue-200"
+          >
+            <X size={18} />
+          </button>
+        </div>
       </div>
+
+      {showConfig && (
+        <form onSubmit={handleSaveConfig} className="p-3 bg-gray-950 border-b border-blue-800 space-y-2 text-xs font-mono">
+          <div>
+            <label className="text-cyan-500 block mb-1">PROVIDER</label>
+            <select
+              value={aiConfig.provider}
+              onChange={(e) => {
+                const provider = e.target.value;
+                setAiConfig((prev) => ({
+                  ...prev,
+                  provider,
+                  model: provider === 'anthropic' ? 'claude-3-5-sonnet-20241022' : 'gpt-4o-mini',
+                  endpoint:
+                    provider === 'anthropic'
+                      ? 'https://api.anthropic.com/v1/messages'
+                      : 'https://api.openai.com/v1/chat/completions',
+                }));
+              }}
+              className="w-full bg-gray-900 border border-cyan-800 rounded px-2 py-1 text-cyan-200"
+            >
+              <option value="local">Local Knowledge Base (Offline RAG)</option>
+              <option value="openai">OpenAI Compatible</option>
+              <option value="anthropic">Anthropic Claude</option>
+            </select>
+          </div>
+          {aiConfig.provider !== 'local' && (
+            <>
+              <div>
+                <label className="text-cyan-500 block mb-1">API KEY</label>
+                <input
+                  type="password"
+                  value={aiConfig.apiKey || ''}
+                  onChange={(e) => setAiConfig((prev) => ({ ...prev, apiKey: e.target.value }))}
+                  placeholder="sk-..."
+                  className="w-full bg-gray-900 border border-cyan-800 rounded px-2 py-1 text-cyan-200"
+                />
+              </div>
+              <div>
+                <label className="text-cyan-500 block mb-1">MODEL</label>
+                <input
+                  type="text"
+                  value={aiConfig.model || ''}
+                  onChange={(e) => setAiConfig((prev) => ({ ...prev, model: e.target.value }))}
+                  className="w-full bg-gray-900 border border-cyan-800 rounded px-2 py-1 text-cyan-200"
+                />
+              </div>
+            </>
+          )}
+          <div className="flex justify-end space-x-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setShowConfig(false)}
+              className="px-2 py-1 text-gray-400 hover:text-gray-200"
+            >
+              CANCEL
+            </button>
+            <button
+              type="submit"
+              className="px-3 py-1 bg-cyan-900 text-cyan-200 border border-cyan-600 rounded hover:bg-cyan-800"
+            >
+              SAVE
+            </button>
+          </div>
+        </form>
+      )}
       
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-850">
         {messages.map((message, index) => (

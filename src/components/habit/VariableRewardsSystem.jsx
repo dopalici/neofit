@@ -1,6 +1,6 @@
 // src/components/habit/VariableRewardsSystem.jsx
 import React, { useState, useEffect } from 'react';
-import { Gift, Star, TrendingUp, Award, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Gift, Star, TrendingUp, Award } from 'lucide-react';
 
 export default function VariableRewardsSystem({ 
   rewardsData, 

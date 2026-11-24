@@ -1,6 +1,6 @@
 // src/services/healthDataProcessor.js
 import { format, parseISO, isValid, subDays } from 'date-fns';
-import { getFromStorage, saveToStorage } from '../utils/storageUtils';
+import { getFromStorage } from '../utils/storageUtils';
 import { STORAGE_KEYS } from './dataImportService';
 
 /**
@@ -311,6 +311,9 @@ function calculateStats(data, dataType) {
       stats.dailyAverage = stats.weeklyTotal / 7;
       stats.sufficientExposure = stats.latest ? stats.latest.value >= 30 : false; // 30 min daily minimum
       break;
+
+    default:
+      break;
   }
 
   return stats;
@@ -600,8 +603,7 @@ function calculateSleepDebt(sleepData) {
   if (!sleepData || sleepData.length < 3) return 0;
   
   // Ideal sleep amount (8 hours per night)
-  const idealNightly = 8; 
-  const idealWeekly = idealNightly * 7;
+  const idealNightly = 8;
   
   // Get data from the last 7 days
   const now = new Date();
@@ -1316,34 +1318,129 @@ export function processNutritionData(healthData = {}) {
  * Calculate more advanced health and fitness metrics and
  * combine them into comprehensive health scores
  */
+const PROCESSOR_CACHE_TTL_MS = 60 * 1000;
+let metricsCache = { key: null, timestamp: 0, value: null };
+
+export function clearProcessorCache() {
+  metricsCache = { key: null, timestamp: 0, value: null };
+}
+
+/**
+ * Safely extract a validated array of health samples whether passed as
+ * a raw array (from useAppleHealth) or an object with a `.data` array (from healthService).
+ */
+function extractSamples(entry) {
+  if (Array.isArray(entry)) return entry;
+  if (entry && Array.isArray(entry.data)) return entry.data;
+  return [];
+}
+
+/**
+ * Compute workout modality symmetry (0-100) from workout history balance
+ * across strength, endurance/cardio, and mobility/other sessions.
+ */
+function calculateSymmetryScore(workoutData) {
+  if (!Array.isArray(workoutData) || workoutData.length === 0) return null;
+
+  let strength = 0;
+  let endurance = 0;
+  let mobility = 0;
+
+  workoutData.forEach((w) => {
+    const t = String(w.type || '').toLowerCase();
+    if (t.includes('strength') || t.includes('weight') || t.includes('resistance') || t.includes('lift')) {
+      strength++;
+    } else if (
+      t.includes('run') ||
+      t.includes('cycl') ||
+      t.includes('swim') ||
+      t.includes('cardio') ||
+      t.includes('row') ||
+      t.includes('hiit') ||
+      t.includes('walk')
+    ) {
+      endurance++;
+    } else {
+      mobility++;
+    }
+  });
+
+  const total = strength + endurance + mobility;
+  if (total === 0) return null;
+
+  // Measure balance between strength and endurance (ideal 40-60% split) + bonus for mobility
+  const activeModalities = [strength, endurance, mobility].filter((c) => c > 0).length;
+  const maxRatio = Math.max(strength, endurance, mobility) / total;
+  const balanceScore = (1 - Math.max(0, maxRatio - 0.5)) * 85;
+  const varietyBonus = activeModalities >= 3 ? 15 : activeModalities === 2 ? 10 : 0;
+
+  return Math.min(100, Math.round(balanceScore + varietyBonus));
+}
+
+/**
+ * Compute potential score (0-100) from progress trends across VO2 max, steps, and workouts.
+ */
+function calculatePotentialScore({ vo2MaxData, stepData, workoutData, individualMetrics }) {
+  const components = [];
+
+  if (vo2MaxData.length > 0 && individualMetrics.oxygenUtilization.score > 0) {
+    components.push(individualMetrics.oxygenUtilization.score);
+  }
+
+  if (stepData.length > 0) {
+    const recentSteps = stepData.slice(0, 7);
+    const avgSteps = recentSteps.reduce((s, d) => s + (Number(d.value) || 0), 0) / recentSteps.length;
+    components.push(Math.min(100, Math.round((avgSteps / 10000) * 100)));
+  }
+
+  if (workoutData.length > 0) {
+    const weekAgo = subDays(new Date(), 7);
+    const weeklyWorkouts = workoutData.filter((w) => {
+      const d = new Date(w.date);
+      return !Number.isNaN(d.getTime()) && d >= weekAgo;
+    }).length;
+    // Target 4-5 sessions/week
+    components.push(Math.min(100, Math.round((weeklyWorkouts / 5) * 100)));
+  }
+
+  if (components.length === 0) return null;
+  return Math.round(components.reduce((a, b) => a + b, 0) / components.length);
+}
+
 export function processEnhancementMetrics(healthData = {}) {
-  // Default metrics if no data is available
-  const defaultMetrics = {
+  // Empty NO DATA defaults — never fabricate fake metrics
+  const emptyMetrics = {
     cardiacEfficiency: {
-      current: 62,
-      status: 'OPTIMAL',
-      score: 75
+      current: null,
+      status: 'NO DATA',
+      score: 0
     },
     oxygenUtilization: {
-      current: 42.5,
-      status: 'ADVANCED',
-      score: 68
+      current: null,
+      status: 'NO DATA',
+      score: 0
     },
     forceOutput: {
-      current: 78,
-      status: 'ADVANCED',
-      score: 78
+      current: null,
+      status: 'NO DATA',
+      score: 0
     },
     enduranceMatrix: {
-      current: 82,
-      status: 'SUPERIOR',
-      score: 82
+      current: null,
+      status: 'NO DATA',
+      score: 0
     }
   };
 
   // Initialize comprehensive metrics structure
   let comprehensiveMetrics = {
-    individualMetrics: { ...defaultMetrics },
+    individualMetrics: { ...emptyMetrics },
+    enhancementScores: {
+      symmetry: null,
+      potential: null,
+      efficiency: null,
+      recovery: null
+    },
     cardiovascular: {
       restingHeartRate: null,
       heartRateVariability: null,
@@ -1397,35 +1494,58 @@ export function processEnhancementMetrics(healthData = {}) {
     }
   };
 
-  // Process health data if available
-  if (!healthData) {
-    return {
-      individualMetrics: defaultMetrics,
-      ...comprehensiveMetrics
-    };
+  if (!healthData || typeof healthData !== 'object') {
+    return comprehensiveMetrics;
   }
 
-  // Extract available health data
-  const heartRateData = healthData.heartRate?.data || [];
-  const restingHRData = healthData.restingHeartRate?.data || [];
-  const hrvData = healthData.heartRateVariability?.data || [];
-  const sleepData = healthData.sleep?.data || [];
-  const vo2MaxData = healthData.vo2max?.data || [];
-  const workoutData = healthData.workouts?.data || [];
-  const stepData = healthData.steps?.data || [];
-  const caloriesData = healthData.calories?.data || [];
-  const basalEnergyData = healthData.basalEnergy?.data || [];
-  const oxygenSaturationData = healthData.oxygenSaturation?.data || [];
+  // Extract available health data (supports both raw arrays and { data: [...] } shapes)
+  const heartRateData = extractSamples(healthData.heartRate);
+  const restingHRData = extractSamples(healthData.restingHeartRate);
+  const hrvData = extractSamples(healthData.heartRateVariability);
+  const sleepData = extractSamples(healthData.sleep);
+  const vo2MaxData =
+    extractSamples(healthData.vo2max).length > 0
+      ? extractSamples(healthData.vo2max)
+      : extractSamples(healthData.vo2Max);
+  const workoutData = extractSamples(healthData.workouts);
+  const stepData = extractSamples(healthData.steps);
+  const caloriesData = extractSamples(healthData.calories);
+  const basalEnergyData = extractSamples(healthData.basalEnergy);
+  const oxygenSaturationData = extractSamples(healthData.oxygenSaturation);
   const dietaryData = {
-    energy: healthData.dietaryEnergy?.data || [],
-    protein: healthData.dietaryProtein?.data || [],
-    carbs: healthData.dietaryCarbs?.data || [],
-    fat: healthData.dietaryFat?.data || [],
-    water: healthData.dietaryWater?.data || []
+    energy: extractSamples(healthData.dietaryEnergy),
+    protein: extractSamples(healthData.dietaryProtein),
+    carbs: extractSamples(healthData.dietaryCarbs),
+    fat: extractSamples(healthData.dietaryFat),
+    water: extractSamples(healthData.dietaryWater)
   };
 
+  // Cache check based on sample counts & latest timestamps
+  const cacheKey = [
+    heartRateData.length, heartRateData[0]?.date,
+    restingHRData.length, hrvData.length, hrvData[0]?.date,
+    sleepData.length, sleepData[0]?.date,
+    vo2MaxData.length, vo2MaxData[0]?.date,
+    workoutData.length, workoutData[0]?.date,
+    stepData.length, stepData[0]?.date,
+    caloriesData.length, dietaryData.energy.length
+  ].join('|');
+
+  if (
+    metricsCache.key === cacheKey &&
+    Date.now() - metricsCache.timestamp < PROCESSOR_CACHE_TTL_MS &&
+    metricsCache.value
+  ) {
+    return metricsCache.value;
+  }
+
   // Initialize individual metrics
-  const metrics = { ...defaultMetrics };
+  const metrics = {
+    cardiacEfficiency: { ...emptyMetrics.cardiacEfficiency },
+    oxygenUtilization: { ...emptyMetrics.oxygenUtilization },
+    forceOutput: { ...emptyMetrics.forceOutput },
+    enduranceMatrix: { ...emptyMetrics.enduranceMatrix }
+  };
 
   // ---- Calculate Individual Metrics ----
 
@@ -1956,10 +2076,57 @@ export function processEnhancementMetrics(healthData = {}) {
     }
   }
 
-  return {
+  // ---- Calculate Phase 2.4 Enhancement Summary Scores ----
+  const symmetry = calculateSymmetryScore(workoutData);
+  const potential = calculatePotentialScore({
+    vo2MaxData,
+    stepData,
+    workoutData,
     individualMetrics: metrics,
-    ...comprehensiveMetrics
+  });
+  const efficiency =
+    heartRateData.length > 0 || restingHRData.length > 0
+      ? Math.min(100, Math.max(0, metrics.cardiacEfficiency.score))
+      : null;
+
+  // Recovery combines HRV (when present) and sleep recovery contribution
+  const recoveryComponents = [];
+  if (hrvData.length > 0) {
+    const latestHrv = Number(hrvData[0].value);
+    if (!Number.isNaN(latestHrv)) {
+      const hrvRecovery =
+        latestHrv >= 70 ? 95 : latestHrv >= 50 ? 82 : latestHrv >= 35 ? 68 : latestHrv >= 20 ? 50 : 32;
+      recoveryComponents.push(hrvRecovery);
+    }
+  }
+  if (sleepData.length > 0 && comprehensiveMetrics.sleep.overallScore > 0) {
+    recoveryComponents.push(comprehensiveMetrics.sleep.overallScore);
+  }
+  const recovery =
+    recoveryComponents.length > 0
+      ? Math.round(recoveryComponents.reduce((a, b) => a + b, 0) / recoveryComponents.length)
+      : null;
+
+  comprehensiveMetrics.enhancementScores = {
+    symmetry,
+    potential,
+    efficiency,
+    recovery,
   };
+  comprehensiveMetrics.individualMetrics = metrics;
+
+  const result = {
+    ...comprehensiveMetrics,
+    individualMetrics: metrics,
+  };
+
+  metricsCache = {
+    key: cacheKey,
+    timestamp: Date.now(),
+    value: result,
+  };
+
+  return result;
 }
 
 /**

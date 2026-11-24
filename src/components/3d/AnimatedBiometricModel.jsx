@@ -26,17 +26,11 @@ function VitruvianHuman({
 }) {
   const group = useRef();
   const mixer = useRef(null);
-  const clock = useRef(new THREE.Clock());
   const [animations, setAnimations] = useState({});
   const [activeAction, setActiveAction] = useState(null);
 
   // Load your model
-  const {
-    scene,
-    nodes,
-    materials,
-    animations: defaultAnimations,
-  } = useGLTF(MODEL_PATH);
+  const { scene, materials } = useGLTF(MODEL_PATH);
 
   // Fix model orientation
   useEffect(() => {

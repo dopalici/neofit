@@ -1,10 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAppleHealth } from './useAppleHealth';
 import { useNutritionData } from './useNutritionData';
-import { useHabitData } from './useHabitData';
-import { getFromStorage } from '../utils/storageUtils';
+import { useHabitSystem } from './useHabitData';
 import { processEnhancementMetrics, processUserGoals } from '../services/healthDataProcessor';
-import { STORAGE_KEYS } from '../services/dataImportService';
+
+const INTEGRATED_HEALTH_DATA_TYPES = [
+  'heartRate',
+  'steps',
+  'sleep',
+  'calories',
+  'vo2max',
+  'restingHeartRate',
+  'heartRateVariability',
+  'oxygenSaturation'
+];
 
 /**
  * Integrated hook that combines health data, nutrition data, habits and goals
@@ -14,43 +23,28 @@ import { STORAGE_KEYS } from '../services/dataImportService';
 export function useIntegratedHealth(initialGoals = {}) {
   // Use the Apple Health hook for health data
   const {
-    data: healthData,
+    healthData,
+    sleepAnalysis,
     isAvailable: isHealthAvailable,
-    isAuthorized: isHealthAuthorized,
+    hasPermission: isHealthAuthorized,
     isLoading: isHealthLoading,
     refreshData: refreshHealthData
-  } = useAppleHealth([
-    'heartRate',
-    'steps',
-    'sleep',
-    'calories',
-    'vo2max',
-    'restingHeartRate',
-    'heartRateVariability',
-    'oxygenSaturation'
-  ], 'week', { observe: true });
+  } = useAppleHealth(INTEGRATED_HEALTH_DATA_TYPES, 'week');
   
   // Use the nutrition data hook for Apple Health nutrition data
   const {
     nutritionData,
     isLoading: isNutritionLoading,
-    isHealthAvailable: isNutritionHealthAvailable,
-    isHealthAuthorized: isNutritionHealthAuthorized,
-    updateNutritionData,
     logMeal: addMealToNutrition,
     refreshData: refreshNutritionData
   } = useNutritionData({ fetchFromHealth: true, period: 'day' });
   
-  // Use the habit data hook for habit tracking
+  // Use the habit system hook for habit tracking
   const {
     habitData,
-    isLoading: isHabitLoading,
-    updateStreak,
-    completeHabit,
-    performCheckIn,
-    startChallenge,
-    completeChallenge
-  } = useHabitData();
+    loading: isHabitLoading,
+    actions: habitActions
+  } = useHabitSystem();
   
   // Local state for enhancement metrics and goals
   const [enhancementMetrics, setEnhancementMetrics] = useState(null);
@@ -80,6 +74,11 @@ export function useIntegratedHealth(initialGoals = {}) {
   const syncNutrition = useCallback(async () => {
     return refreshNutritionData();
   }, [refreshNutritionData]);
+
+  const performCheckIn = useCallback(
+    (type = 'daily') => habitActions.checkIn(type),
+    [habitActions]
+  );
   
   // Perform daily check-in with goal updates
   const performCheckInWithGoals = useCallback(async () => {
@@ -122,22 +121,18 @@ export function useIntegratedHealth(initialGoals = {}) {
     if (!userGoals[goalId]) return null;
     
     // Start a habit challenge linked to this goal
-    const result = startChallenge({
-      id: `goal-${goalId}-${Date.now()}`,
-      name: userGoals[goalId].name,
-      type: 'goal',
-      targetDays: 7,
-      linkedGoal: goalId
-    });
-    
-    return result;
-  }, [userGoals, startChallenge]);
+    return habitActions.manageChallenge(
+      `goal-${goalId}-${Date.now()}`,
+      'start',
+      userGoals[goalId].type || 'goal'
+    );
+  }, [userGoals, habitActions]);
   
   // Complete a goal challenge
   const completeGoalChallenge = useCallback((challengeId, goalId) => {
     try {
       // Complete the challenge in habit system
-      const result = completeChallenge(challengeId);
+      const result = habitActions.manageChallenge(challengeId, 'complete');
       
       if (result.success && goalId && userGoals[goalId]) {
         // Boost goal progress significantly
@@ -162,11 +157,12 @@ export function useIntegratedHealth(initialGoals = {}) {
       console.error('Error completing goal challenge:', error);
       throw error;
     }
-  }, [userGoals, completeChallenge]);
+  }, [userGoals, habitActions]);
   
   return {
     // Data
     healthData,
+    sleepAnalysis,
     enhancementMetrics,
     nutritionData,
     userGoals,
@@ -181,8 +177,6 @@ export function useIntegratedHealth(initialGoals = {}) {
     refreshHealthData,
     
     // Habit functions
-    updateStreak,
-    completeHabit,
     performCheckIn,
     performCheckInWithGoals,
     startGoalChallenge,

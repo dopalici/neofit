@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Lock, CheckCircle, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trophy, Lock, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { getPersonalizedChallengeProgression } from '../../utils/habitUtils';
 
 export default function ProgressiveChallenge({ 
@@ -12,7 +12,7 @@ export default function ProgressiveChallenge({
   const [availableChallenges, setAvailableChallenges] = useState([]);
   const [activeCategory, setActiveCategory] = useState('strength');
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
-  const [userProgress, setUserProgress] = useState(100); // Default progress for demo
+  const userProgress = 100; // Default progress for demo
   
   // Initialize challenges from data or use defaults
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function ProgressiveChallenge({
     // Load challenges for active category
     const challenges = getPersonalizedChallengeProgression(activeCategory, userProgress);
     setAvailableChallenges(challenges);
-  }, [challengesData, userPreferences, activeCategory]);
+  }, [challengesData, userPreferences, activeCategory, userProgress]);
   
   // Change category and load appropriate challenges
   const changeCategory = (category) => {

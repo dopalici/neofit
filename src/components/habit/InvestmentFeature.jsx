@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dumbbell, Brain, ChevronDown, ChevronUp, Save, Target } from 'lucide-react';
+import { Dumbbell, Brain, Save, Target } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function InvestmentFeature({ 

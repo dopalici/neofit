@@ -549,16 +549,26 @@ public class HealthKitPlugin: CAPPlugin {
                     workoutType = "cycling"
                 case .walking:
                     workoutType = "walking"
+                case .hiking:
+                    workoutType = "hiking"
                 case .swimming:
                     workoutType = "swimming"
-                case .functionalStrengthTraining:
-                    workoutType = "strength"
-                case .traditionalStrengthTraining:
+                case .rowing:
+                    workoutType = "rowing"
+                case .elliptical:
+                    workoutType = "elliptical"
+                case .stairClimbing:
+                    workoutType = "stair_climbing"
+                case .functionalStrengthTraining, .traditionalStrengthTraining:
                     workoutType = "strength"
                 case .highIntensityIntervalTraining:
                     workoutType = "hiit"
+                case .coreTraining:
+                    workoutType = "core"
                 case .yoga:
                     workoutType = "yoga"
+                case .pilates:
+                    workoutType = "pilates"
                 default:
                     workoutType = "other"
                 }
@@ -567,6 +577,7 @@ public class HealthKitPlugin: CAPPlugin {
                     "date": dateFormatter.string(from: workout.startDate),
                     "endDate": dateFormatter.string(from: workout.endDate),
                     "duration": duration,
+                    "unit": "minutes",
                     "type": workoutType,
                     "source": workout.sourceRevision.source.name
                 ]
@@ -576,9 +587,24 @@ public class HealthKitPlugin: CAPPlugin {
                     workoutData["calories"] = energyBurned.doubleValue(for: HKUnit.kilocalorie())
                 }
                 
-                // Add distance if available
+                // Add distance if available (meters with explicit unit)
                 if let distance = workout.totalDistance {
                     workoutData["distance"] = distance.doubleValue(for: HKUnit.meter())
+                    workoutData["distanceUnit"] = "m"
+                }
+
+                // Extract Apple Watch workout average & max heart rate on iOS 16+ (safe on iOS 14/15)
+                if #available(iOS 16.0, *) {
+                    if let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate),
+                       let hrStats = workout.statistics(for: hrType) {
+                        let bpmUnit = HKUnit.count().unitDivided(by: HKUnit.minute())
+                        if let avgHr = hrStats.averageQuantity() {
+                            workoutData["averageHeartRate"] = avgHr.doubleValue(for: bpmUnit)
+                        }
+                        if let maxHr = hrStats.maximumQuantity() {
+                            workoutData["maxHeartRate"] = maxHr.doubleValue(for: bpmUnit)
+                        }
+                    }
                 }
                 
                 results.append(workoutData)

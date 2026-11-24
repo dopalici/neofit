@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   BookOpen,
@@ -10,27 +10,16 @@ import {
   HeartPulse,
   Moon,
   RefreshCw,
+  Sparkles,
   Utensils,
 } from "lucide-react";
 import ScanlineEffect from "../ui/ScanlineEffect";
 import ErrorBoundary from "../ui/ErrorBoundary";
 import { DashboardSkeleton, OfflineBanner } from "../ui/LoadingSkeleton";
 import OnboardingFlow, { ONBOARDING_STORAGE_KEY } from "../onboarding/OnboardingFlow";
-import AIChatbot from "./AIChatbot";
-import ActivityLog from "./ActivityLog";
 import AerobicGoalAnalyzer from "./AerobicGoalAnalyzer";
-import BiometricPanel from "./BiometricPanel";
-import EnhancedNutritionPanel from "./EnhancedNutritionPanel";
-import EnhancementMetricsPanel from "./EnhancementMetricsPanel";
-import GoalStudioModal from "./GoalStudioModal";
-import HabitDashboard from "./HabitDashboard";
 import Header from "./Header";
-import HealthDataDashboard from "./HealthDataDashboard";
-import IntegrationModal from "./IntegrationModal";
-import KnowledgeBaseBrowser from "./KnowledgeBaseBrowser";
-import SleepAnalysis from "./SleepAnalysis";
 import SystemCommandCenter from "./SystemCommandCenter";
-import WorkoutLogger from "./WorkoutLogger";
 import {
   analyzeAerobicGoalProgress,
   getSavedAerobicGoalId,
@@ -54,6 +43,21 @@ import {
   getSavedTheme,
 } from "../../utils/themeUtils";
 
+// Lazy-load secondary tabs, heavy charts, 3D avatar, modals & AI Coach
+// so iPhone XS through iPhone 13 mini cold-start instantaneously
+const AIChatbot = lazy(() => import("./AIChatbot"));
+const ActivityLog = lazy(() => import("./ActivityLog"));
+const BiometricPanel = lazy(() => import("./BiometricPanel"));
+const EnhancedNutritionPanel = lazy(() => import("./EnhancedNutritionPanel"));
+const EnhancementMetricsPanel = lazy(() => import("./EnhancementMetricsPanel"));
+const GoalStudioModal = lazy(() => import("./GoalStudioModal"));
+const HabitDashboard = lazy(() => import("./HabitDashboard"));
+const HealthDataDashboard = lazy(() => import("./HealthDataDashboard"));
+const IntegrationModal = lazy(() => import("./IntegrationModal"));
+const KnowledgeBaseBrowser = lazy(() => import("./KnowledgeBaseBrowser"));
+const SleepAnalysis = lazy(() => import("./SleepAnalysis"));
+const WorkoutLogger = lazy(() => import("./WorkoutLogger"));
+
 const DEEP_TELEMETRY_PREF_KEY = "dashboard-deep-telemetry-open";
 
 const TABS = [
@@ -65,6 +69,15 @@ const TABS = [
   { id: "knowledge", label: "FitLib", icon: BookOpen, mobileDock: true },
   { id: "health", label: "Health Data", icon: HeartPulse, mobileDock: true },
 ];
+
+function ModuleFallback() {
+  return (
+    <div className="system-window rounded-2xl p-6 animate-pulse space-y-3">
+      <div className="h-5 w-40 bg-slate-800/70 rounded" />
+      <div className="h-28 bg-slate-800/40 rounded-xl" />
+    </div>
+  );
+}
 
 function getTimeOfDayGreeting() {
   const hour = new Date().getHours();
@@ -110,7 +123,6 @@ export default function Dashboard({
     typeof navigator !== "undefined" ? !navigator.onLine : false
   );
 
-  // Sync visual comfort theme onto <html>
   useEffect(() => {
     applyVisualTheme(visualTheme);
   }, [visualTheme]);
@@ -278,7 +290,7 @@ export default function Dashboard({
 
   return (
     <div
-      className="nv-app-shell min-h-screen relative overflow-x-hidden pb-20 md:pb-8"
+      className="nv-app-shell min-h-screen relative overflow-x-hidden safe-scroll-pad"
       style={{ backgroundColor: "var(--nv-bg)", color: "var(--nv-text)" }}
     >
       <ScanlineEffect />
@@ -341,14 +353,14 @@ export default function Dashboard({
               <DashboardSkeleton />
             ) : (
               <ErrorBoundary fallbackTitle="DASHBOARD RENDER ERROR" onReset={refreshAllData}>
-                <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-6 space-y-6">
+                <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-5 sm:py-6 space-y-5 sm:space-y-6">
                   {/* Friendly 60-Second Daily Welcome Strip */}
                   <div className="flex justify-between items-start sm:items-center flex-wrap gap-3">
                     <div>
                       <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight">
                         {greeting} — Today’s Brief
                       </h1>
-                      <p className="text-sm text-slate-400 mt-0.5">
+                      <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
                         {completedToday === dailyQuests.length && dailyQuests.length > 0
                           ? "All daily quests complete. Recovery and consistency locked in."
                           : `${completedToday}/${dailyQuests.length} daily quests done · Focus on your highest-leverage next step.`}
@@ -403,7 +415,7 @@ export default function Dashboard({
                     onOpenWorkouts={() => setActiveTab("workouts")}
                   />
 
-                  {/* SECONDARY DEEP TELEMETRY (COLLAPSED BY DEFAULT FOR CALM 60-SECOND FOCUS) */}
+                  {/* SECONDARY DEEP TELEMETRY (LAZY + COLLAPSED BY DEFAULT FOR RAPID iPHONE BOOT) */}
                   <div className="pt-1">
                     <button
                       type="button"
@@ -418,8 +430,8 @@ export default function Dashboard({
                           </span>
                           <span className="text-xs text-slate-400">
                             {showDeepTelemetry
-                              ? "Hide 3D model, detailed metrics, nutrition & activity log"
-                              : "Expand when you want deeper 3D biometrics, macros & full workout log"}
+                              ? "Hide detailed metrics, nutrition, activity log & 3D avatar"
+                              : "Tap to load deeper biometrics, macros & full workout log"}
                           </span>
                         </div>
                       </div>
@@ -431,71 +443,73 @@ export default function Dashboard({
                     </button>
 
                     {showDeepTelemetry && (
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-1 space-y-6">
-                          <BiometricPanel userData={userData} healthData={healthData} />
+                      <Suspense fallback={<ModuleFallback />}>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          <div className="lg:col-span-1 space-y-6">
+                            <BiometricPanel userData={userData} healthData={healthData} />
 
-                          {habitData && (
-                            <div className="system-window rounded-2xl p-5">
-                              <div className="flex justify-between items-center mb-3">
-                                <h3 className="text-xs font-mono uppercase tracking-wider text-cyan-300">
-                                  Daily Habit Check-In
-                                </h3>
-                                <button
-                                  type="button"
-                                  onClick={handleCheckIn}
-                                  className="text-xs text-cyan-400 font-mono hover:text-cyan-200"
-                                  disabled={
-                                    habitData.checkInsData?.lastCheckIn ===
-                                    new Date().toISOString().split("T")[0]
-                                  }
-                                >
-                                  {habitData.checkInsData?.lastCheckIn ===
-                                  new Date().toISOString().split("T")[0]
-                                    ? "CHECKED IN"
-                                    : "CHECK IN"}
-                                </button>
-                              </div>
-                              <div className="flex items-center">
-                                <div className="w-14 h-14 nv-surface-subtle border-cyan-500/40 rounded-full flex items-center justify-center">
-                                  <span className="text-lg font-bold text-cyan-300 font-mono">
-                                    {habitData.streakData?.currentStreak || 0}
-                                  </span>
-                                </div>
-                                <div className="ml-4">
-                                  <p className="text-xs text-slate-300 font-mono">
-                                    {habitData.streakData?.currentStreak
-                                      ? `${habitData.streakData.currentStreak}-DAY STREAK`
-                                      : "LOG YOUR DAILY CHECK-IN"}
-                                  </p>
+                            {habitData && (
+                              <div className="system-window rounded-2xl p-5">
+                                <div className="flex justify-between items-center mb-3">
+                                  <h3 className="text-xs font-mono uppercase tracking-wider text-cyan-300">
+                                    Daily Habit Check-In
+                                  </h3>
                                   <button
                                     type="button"
-                                    onClick={() => setActiveTab("habits")}
-                                    className="text-xs text-cyan-400 font-mono hover:text-cyan-300 mt-1"
+                                    onClick={handleCheckIn}
+                                    className="text-xs text-cyan-400 font-mono hover:text-cyan-200"
+                                    disabled={
+                                      habitData.checkInsData?.lastCheckIn ===
+                                      new Date().toISOString().split("T")[0]
+                                    }
                                   >
-                                    OPEN HABIT SYSTEM →
+                                    {habitData.checkInsData?.lastCheckIn ===
+                                    new Date().toISOString().split("T")[0]
+                                      ? "CHECKED IN"
+                                      : "CHECK IN"}
                                   </button>
                                 </div>
+                                <div className="flex items-center">
+                                  <div className="w-14 h-14 nv-surface-subtle border-cyan-500/40 rounded-full flex items-center justify-center">
+                                    <span className="text-lg font-bold text-cyan-300 font-mono">
+                                      {habitData.streakData?.currentStreak || 0}
+                                    </span>
+                                  </div>
+                                  <div className="ml-4">
+                                    <p className="text-xs text-slate-300 font-mono">
+                                      {habitData.streakData?.currentStreak
+                                        ? `${habitData.streakData.currentStreak}-DAY STREAK`
+                                        : "LOG YOUR DAILY CHECK-IN"}
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveTab("habits")}
+                                      className="text-xs text-cyan-400 font-mono hover:text-cyan-300 mt-1"
+                                    >
+                                      OPEN HABIT SYSTEM →
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
+                            )}
+                          </div>
+
+                          <div className="lg:col-span-2 space-y-6">
+                            <EnhancementMetricsPanel healthData={healthData} />
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <EnhancedNutritionPanel
+                                nutritionData={nutritionData}
+                                onSyncNutrition={syncNutritionData}
+                                isSyncing={isDataFetching}
+                                onAddMeal={onAddMeal}
+                                onAddWater={onAddWater}
+                              />
+                              <ActivityLog workouts={healthData?.workouts?.data} />
                             </div>
-                          )}
-                        </div>
-
-                        <div className="lg:col-span-2 space-y-6">
-                          <EnhancementMetricsPanel healthData={healthData} />
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <EnhancedNutritionPanel
-                              nutritionData={nutritionData}
-                              onSyncNutrition={syncNutritionData}
-                              isSyncing={isDataFetching}
-                              onAddMeal={onAddMeal}
-                              onAddWater={onAddWater}
-                            />
-                            <ActivityLog workouts={healthData?.workouts?.data} />
                           </div>
                         </div>
-                      </div>
+                      </Suspense>
                     )}
                   </div>
                 </div>
@@ -504,28 +518,32 @@ export default function Dashboard({
 
           {activeTab === "workouts" && (
             <ErrorBoundary fallbackTitle="WORKOUT LOGGER ERROR">
-              <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
+              <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8">
                 <h1 className="text-xl font-bold text-slate-100 mb-6">
                   Workout Logging & Cardio Templates
                 </h1>
-                <WorkoutLogger onWorkoutLogged={onWorkoutLogged} />
+                <Suspense fallback={<ModuleFallback />}>
+                  <WorkoutLogger onWorkoutLogged={onWorkoutLogged} />
+                </Suspense>
               </div>
             </ErrorBoundary>
           )}
 
           {activeTab === "habits" && (
             <ErrorBoundary fallbackTitle="HABIT SYSTEM ERROR">
-              <HabitDashboard
-                userData={userData}
-                habitData={habitData}
-                onCheckIn={handleCheckIn}
-              />
+              <Suspense fallback={<div className="container mx-auto max-w-7xl px-4 py-6"><ModuleFallback /></div>}>
+                <HabitDashboard
+                  userData={userData}
+                  habitData={habitData}
+                  onCheckIn={handleCheckIn}
+                />
+              </Suspense>
             </ErrorBoundary>
           )}
 
           {activeTab === "nutrition" && (
             <ErrorBoundary fallbackTitle="NUTRITION MODULE ERROR">
-              <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
+              <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8">
                 <div className="flex justify-between items-center mb-6">
                   <h1 className="text-xl font-bold text-slate-100">
                     Nutrition Optimization
@@ -547,52 +565,60 @@ export default function Dashboard({
                   </div>
                 </div>
 
-                <EnhancedNutritionPanel
-                  nutritionData={nutritionData}
-                  onSyncNutrition={syncNutritionData}
-                  isSyncing={isDataFetching}
-                  onAddMeal={onAddMeal}
-                  onAddWater={onAddWater}
-                />
+                <Suspense fallback={<ModuleFallback />}>
+                  <EnhancedNutritionPanel
+                    nutritionData={nutritionData}
+                    onSyncNutrition={syncNutritionData}
+                    isSyncing={isDataFetching}
+                    onAddMeal={onAddMeal}
+                    onAddWater={onAddWater}
+                  />
+                </Suspense>
               </div>
             </ErrorBoundary>
           )}
 
           {activeTab === "sleep" && (
             <ErrorBoundary fallbackTitle="SLEEP ANALYSIS ERROR">
-              <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
+              <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8">
                 <h1 className="text-xl font-bold text-slate-100 mb-6">
                   Sleep & Recovery Analysis
                 </h1>
-                <SleepAnalysis sleepData={healthData?.sleep} />
+                <Suspense fallback={<ModuleFallback />}>
+                  <SleepAnalysis sleepData={healthData?.sleep} />
+                </Suspense>
               </div>
             </ErrorBoundary>
           )}
 
           {activeTab === "knowledge" && (
             <ErrorBoundary fallbackTitle="KNOWLEDGE BASE ERROR">
-              <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
-                <KnowledgeBaseBrowser
-                  userData={{ healthData, nutritionData, habitData, userGoals }}
-                  initialEntryId={selectedKbEntryId}
-                  onNavigateToWorkouts={() => setActiveTab("workouts")}
-                />
+              <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8">
+                <Suspense fallback={<ModuleFallback />}>
+                  <KnowledgeBaseBrowser
+                    userData={{ healthData, nutritionData, habitData, userGoals }}
+                    initialEntryId={selectedKbEntryId}
+                    onNavigateToWorkouts={() => setActiveTab("workouts")}
+                  />
+                </Suspense>
               </div>
             </ErrorBoundary>
           )}
 
           {activeTab === "health" && (
             <ErrorBoundary fallbackTitle="HEALTH DATA ERROR">
-              <HealthDataDashboard />
+              <Suspense fallback={<div className="container mx-auto max-w-7xl px-4 py-6"><ModuleFallback /></div>}>
+                <HealthDataDashboard />
+              </Suspense>
             </ErrorBoundary>
           )}
 
-          {/* Responsive Mobile Bottom Navigation Dock (Apple HIG 44px+ touch targets) */}
+          {/* Responsive Mobile Bottom Navigation Dock (iPhone XS / 13 mini Safe-Area Aware) */}
           <nav
             aria-label="Mobile Navigation"
-            className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t backdrop-blur-lg px-2 py-1.5"
+            className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t backdrop-blur-lg px-2 pt-1.5 safe-bottom"
             style={{
-              backgroundColor: "color-mix(in srgb, var(--nv-bg-elevated) 92%, transparent)",
+              backgroundColor: "color-mix(in srgb, var(--nv-bg-elevated) 94%, transparent)",
               borderColor: "var(--nv-border)",
             }}
           >
@@ -617,35 +643,61 @@ export default function Dashboard({
             </div>
           </nav>
 
-          <IntegrationModal
-            isOpen={showIntegrationModal}
-            onClose={() => setShowIntegrationModal(false)}
-            connectedApps={connectedApps}
-            onToggleConnection={toggleAppConnection}
-            theme={visualTheme}
-            onSelectTheme={handleSelectTheme}
-          />
+          {/* Lightweight Floating AI Coach Button (zero AIChatbot chunk loaded until tapped) */}
+          {!showAIChatbot && (
+            <button
+              type="button"
+              onClick={() => setShowAIChatbot(true)}
+              title="Open System AI Coach"
+              aria-label="Open System AI Coach"
+              className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 bg-cyan-400 text-slate-950 rounded-full p-3.5 shadow-xl shadow-cyan-950/50 hover:bg-cyan-300 transition-colors z-40"
+            >
+              <Sparkles size={20} />
+            </button>
+          )}
 
-          <GoalStudioModal
-            isOpen={showGoalStudio}
-            onClose={() => setShowGoalStudio(false)}
-            onAddGoal={handleAddGoal}
-          />
+          {/* Lazy-Mounted Modals & AI Coach */}
+          {showIntegrationModal && (
+            <Suspense fallback={null}>
+              <IntegrationModal
+                isOpen={showIntegrationModal}
+                onClose={() => setShowIntegrationModal(false)}
+                connectedApps={connectedApps}
+                onToggleConnection={toggleAppConnection}
+                theme={visualTheme}
+                onSelectTheme={handleSelectTheme}
+              />
+            </Suspense>
+          )}
 
-          <AIChatbot
-            isOpen={showAIChatbot}
-            onClose={() => setShowAIChatbot(false)}
-            healthData={healthData}
-            nutritionData={nutritionData}
-            habitData={habitData}
-            userGoals={userGoals}
-            readiness={readiness}
-            progression={progression}
-            systemState={systemState}
-            aerobicAnalysis={aerobicAnalysis}
-            pendingPrompt={pendingCoachPrompt}
-            onConsumePendingPrompt={() => setPendingCoachPrompt(null)}
-          />
+          {showGoalStudio && (
+            <Suspense fallback={null}>
+              <GoalStudioModal
+                isOpen={showGoalStudio}
+                onClose={() => setShowGoalStudio(false)}
+                onAddGoal={handleAddGoal}
+              />
+            </Suspense>
+          )}
+
+          {showAIChatbot && (
+            <Suspense fallback={null}>
+              <AIChatbot
+                isOpen={showAIChatbot}
+                onClose={() => setShowAIChatbot(false)}
+                healthData={healthData}
+                nutritionData={nutritionData}
+                habitData={habitData}
+                userGoals={userGoals}
+                readiness={readiness}
+                progression={progression}
+                systemState={systemState}
+                aerobicAnalysis={aerobicAnalysis}
+                pendingPrompt={pendingCoachPrompt}
+                onConsumePendingPrompt={() => setPendingCoachPrompt(null)}
+              />
+            </Suspense>
+          )}
         </div>
       )}
     </div>

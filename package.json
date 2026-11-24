@@ -27,6 +27,8 @@
   "scripts": {
     "start": "react-app-rewired start",
     "build": "react-app-rewired build",
+    "build:ios": "node scripts/build-ios-lite.mjs",
+    "ios:sync": "node scripts/build-ios-lite.mjs && npx cap sync ios",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject",
     "kb:sync": "node scripts/sync-fitlib-vault.mjs"

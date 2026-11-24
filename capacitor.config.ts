@@ -9,10 +9,10 @@ const config: CapacitorConfig = {
     iosScheme: "https",
   },
   ios: {
-    contentInset: "automatic",
-    allowsLinkPreview: true,
+    contentInset: "never",
+    allowsLinkPreview: false,
     scrollEnabled: true,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#0b1117",
     preferredContentMode: "mobile",
   },
   plugins: {

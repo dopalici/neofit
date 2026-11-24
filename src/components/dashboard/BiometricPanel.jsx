@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import AnimatedBiometricModel from '../3d/AnimatedBiometricModel';
+import React, { Suspense, lazy, useState } from "react";
+import { Activity, Box, HeartPulse, Shield } from "lucide-react";
+
+const AnimatedBiometricModel = lazy(() => import("../3d/AnimatedBiometricModel"));
 
 export default function BiometricPanel({ userData, healthData }) {
-  const [currentAnimation, setCurrentAnimation] = useState('idle');
-
-  useEffect(() => {
-    setCurrentAnimation('idle');
-  }, []);
+  const [currentAnimation, setCurrentAnimation] = useState("idle");
+  const [enable3D, setEnable3D] = useState(false);
 
   return (
     <div className="system-window rounded-2xl overflow-hidden">
@@ -16,123 +15,180 @@ export default function BiometricPanel({ userData, healthData }) {
             Biometric Imprint
           </h2>
           <div className="flex items-center">
-            <span className="text-xs text-cyan-600 font-mono mr-2">
-              {healthData?.source && healthData.source !== 'none'
+            <span className="text-xs text-slate-400 font-mono mr-2">
+              {healthData?.source && healthData.source !== "none"
                 ? healthData.source.toUpperCase()
-                : 'NO SOURCE'}
+                : "NO SOURCE"}
             </span>
             <div
-              className="h-4 w-4 bg-gray-800 rounded-full flex items-center justify-center"
-              title={healthData?.hasData ? `Connected: ${healthData.source}` : 'No health data synced'}
+              className="h-4 w-4 bg-slate-800 rounded-full flex items-center justify-center"
+              title={
+                healthData?.hasData
+                  ? `Connected: ${healthData.source}`
+                  : "No health data synced"
+              }
             >
               <div
                 className={`h-2 w-2 rounded-full ${
-                  healthData?.hasData ? 'bg-green-500' : 'bg-gray-500'
+                  healthData?.hasData ? "bg-emerald-400" : "bg-slate-500"
                 }`}
-              ></div>
+              />
             </div>
           </div>
         </div>
-        
-        <div className="relative bg-gray-950 rounded h-80 flex items-center justify-center mb-4 border border-cyan-900 overflow-hidden">
-          <AnimatedBiometricModel 
-            userData={userData} 
-            currentAnimation={currentAnimation}
-          />
-          
-          {/* Animation indicator */}
-          <div className="absolute bottom-2 right-2 bg-gray-900/70 px-2 py-1 rounded text-xs text-cyan-400 font-mono">
-            ANIMATION: {currentAnimation.toUpperCase()}
+
+        {/* Zero-GPU Rapid Telemetry Summary by default; optional on-demand WebGL 3D Avatar */}
+        {enable3D ? (
+          <div className="relative nv-surface-subtle rounded-xl h-72 flex items-center justify-center mb-4 overflow-hidden">
+            <Suspense
+              fallback={
+                <div className="text-xs text-slate-400">Initializing 3D WebGL model...</div>
+              }
+            >
+              <AnimatedBiometricModel
+                userData={userData}
+                currentAnimation={currentAnimation}
+              />
+            </Suspense>
+            <div className="absolute bottom-2 right-2 bg-slate-900/80 px-2 py-1 rounded text-[11px] text-cyan-300 font-mono">
+              {currentAnimation.toUpperCase()}
+            </div>
+            <button
+              type="button"
+              onClick={() => setEnable3D(false)}
+              className="absolute top-2 right-2 bg-slate-900/80 px-2.5 py-1 rounded text-[11px] text-slate-300 hover:text-cyan-300 border border-slate-700"
+            >
+              Lightweight View
+            </button>
           </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gray-950 border border-cyan-900 p-4 rounded">
-            <p className="text-xs text-cyan-600 font-mono mb-1">WEIGHT STATUS</p>
+        ) : (
+          <div className="nv-surface-subtle rounded-xl p-4 mb-4 space-y-3">
+            <div className="grid grid-cols-2 gap-2.5 text-xs">
+              <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
+                <p className="text-[10px] text-slate-400 uppercase flex items-center gap-1">
+                  <Shield size={11} className="text-cyan-400" /> Symmetry
+                </p>
+                <p className="text-lg font-bold font-mono text-slate-100 mt-0.5">
+                  {userData?.metrics?.symmetry ?? "--"}
+                  {userData?.metrics?.symmetry !== null &&
+                  userData?.metrics?.symmetry !== undefined
+                    ? "%"
+                    : ""}
+                </p>
+              </div>
+              <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
+                <p className="text-[10px] text-slate-400 uppercase flex items-center gap-1">
+                  <Activity size={11} className="text-emerald-400" /> Potential
+                </p>
+                <p className="text-lg font-bold font-mono text-slate-100 mt-0.5">
+                  {userData?.metrics?.potential ?? "--"}
+                  {userData?.metrics?.potential !== null &&
+                  userData?.metrics?.potential !== undefined
+                    ? "%"
+                    : ""}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+              <span className="flex items-center gap-1.5">
+                <HeartPulse size={13} className="text-rose-400" />
+                HR:{" "}
+                <strong className="text-slate-200 font-mono">
+                  {userData?.metrics?.heartRate ? `${userData.metrics.heartRate} bpm` : "--"}
+                </strong>
+              </span>
+              <span>
+                VO2:{" "}
+                <strong className="text-cyan-300 font-mono">
+                  {userData?.metrics?.vo2max ? userData.metrics.vo2max : "--"}
+                </strong>
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setEnable3D(true)}
+              className="w-full py-2 rounded-lg border border-slate-700/80 bg-slate-900/60 hover:border-cyan-400/50 text-xs text-slate-300 hover:text-cyan-200 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Box size={13} className="text-cyan-400" />
+              Load 3D Avatar Preview (Uses GPU)
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="nv-surface-subtle p-3.5 rounded-xl">
+            <p className="text-[10px] text-slate-400 uppercase mb-1">Weight Status</p>
             <div className="flex items-center justify-between">
-              <p className="text-xl font-bold text-cyan-300 font-mono">
-                {healthData?.weight?.current !== null && healthData?.weight?.current !== undefined
+              <p className="text-lg font-bold text-slate-100 font-mono">
+                {healthData?.weight?.current !== null &&
+                healthData?.weight?.current !== undefined
                   ? `${Number(healthData.weight.current).toFixed(1)} kg`
-                  : '--'}
+                  : "--"}
               </p>
-              {healthData?.weight?.trend !== null && healthData?.weight?.trend !== undefined && (
-                <div className="text-xs text-green-500 font-mono flex items-center">
-                  <span className="mr-1">
-                    {healthData.weight.trend > 0 ? `+${healthData.weight.trend}` : healthData.weight.trend}kg
+              {healthData?.weight?.trend !== null &&
+                healthData?.weight?.trend !== undefined && (
+                  <span className="text-xs text-emerald-400 font-mono">
+                    {healthData.weight.trend > 0
+                      ? `+${healthData.weight.trend}`
+                      : healthData.weight.trend}
+                    kg
                   </span>
-                </div>
-              )}
+                )}
             </div>
-            <p className="text-xs text-cyan-600 font-mono mt-1">
+            <p className="text-[11px] text-slate-400 mt-1">
               {healthData?.weight?.lastUpdated
-                ? `LAST MEASURED: ${healthData.weight.lastUpdated}`
-                : 'NO MEASUREMENTS YET'}
+                ? `Updated: ${healthData.weight.lastUpdated}`
+                : "No measurements yet"}
             </p>
           </div>
-          <div className="bg-gray-950 border border-cyan-900 p-4 rounded">
-            <p className="text-xs text-cyan-600 font-mono mb-1">RECOVERY INDEX</p>
+          <div className="nv-surface-subtle p-3.5 rounded-xl">
+            <p className="text-[10px] text-slate-400 uppercase mb-1">Recovery Index</p>
             <div className="flex items-center justify-between">
-              <p className="text-xl font-bold text-cyan-300 font-mono">
-                {userData?.metrics?.recovery !== null && userData?.metrics?.recovery !== undefined
+              <p className="text-lg font-bold text-slate-100 font-mono">
+                {userData?.metrics?.recovery !== null &&
+                userData?.metrics?.recovery !== undefined
                   ? `${userData.metrics.recovery}%`
-                  : '--'}
+                  : "--"}
               </p>
-              {userData?.metrics?.efficiency !== null && userData?.metrics?.efficiency !== undefined && (
-                <div className="text-xs text-cyan-400 font-mono flex items-center">
-                  <span>EFF {userData.metrics.efficiency}%</span>
-                </div>
-              )}
+              {userData?.metrics?.efficiency !== null &&
+                userData?.metrics?.efficiency !== undefined && (
+                  <span className="text-xs text-cyan-300 font-mono">
+                    EFF {userData.metrics.efficiency}%
+                  </span>
+                )}
             </div>
-            <p className="text-xs text-cyan-600 font-mono mt-1">
-              {userData?.metrics?.recovery !== null && userData?.metrics?.recovery !== undefined
-                ? 'HRV & SLEEP DERIVED'
-                : 'SYNC SLEEP OR HRV'}
+            <p className="text-[11px] text-slate-400 mt-1">
+              {userData?.metrics?.recovery !== null &&
+              userData?.metrics?.recovery !== undefined
+                ? "HRV & sleep derived"
+                : "Sync sleep or HRV"}
             </p>
           </div>
         </div>
-        
-        {/* Optional: Animation Controls */}
-        <div className="mt-4 border-t border-cyan-900 pt-4">
-          <p className="text-xs text-cyan-600 font-mono mb-2">PREVIEW EXERCISES</p>
-          <div className="flex flex-wrap gap-2">
-            <button 
-              onClick={() => setCurrentAnimation('idle')}
-              className={`px-2 py-1 text-xs font-mono rounded ${currentAnimation === 'idle' ? 'bg-cyan-900 text-cyan-300' : 'bg-gray-800 text-gray-400'}`}
-            >
-              IDLE
-            </button>
-            <button 
-              onClick={() => setCurrentAnimation('pushup')}
-              className={`px-2 py-1 text-xs font-mono rounded ${currentAnimation === 'pushup' ? 'bg-cyan-900 text-cyan-300' : 'bg-gray-800 text-gray-400'}`}
-            >
-              PUSH-UP
-            </button>
-            <button 
-              onClick={() => setCurrentAnimation('squat')}
-              className={`px-2 py-1 text-xs font-mono rounded ${currentAnimation === 'squat' ? 'bg-cyan-900 text-cyan-300' : 'bg-gray-800 text-gray-400'}`}
-            >
-              SQUAT
-            </button>
-            <button 
-              onClick={() => setCurrentAnimation('jumpingJack')}
-              className={`px-2 py-1 text-xs font-mono rounded ${currentAnimation === 'jumpingJack' ? 'bg-cyan-900 text-cyan-300' : 'bg-gray-800 text-gray-400'}`}
-            >
-              JUMPING JACK
-            </button>
-            <button 
-              onClick={() => setCurrentAnimation('plank')}
-              className={`px-2 py-1 text-xs font-mono rounded ${currentAnimation === 'plank' ? 'bg-cyan-900 text-cyan-300' : 'bg-gray-800 text-gray-400'}`}
-            >
-              PLANK
-            </button>
-            <button 
-              onClick={() => setCurrentAnimation('situp')}
-              className={`px-2 py-1 text-xs font-mono rounded ${currentAnimation === 'situp' ? 'bg-cyan-900 text-cyan-300' : 'bg-gray-800 text-gray-400'}`}
-            >
-              SIT-UP
-            </button>
+
+        {enable3D && (
+          <div className="mt-4 border-t border-slate-800 pt-3.5">
+            <p className="text-[10px] text-slate-400 uppercase mb-2">Preview Animations</p>
+            <div className="flex flex-wrap gap-1.5">
+              {["idle", "pushup", "squat", "jumpingJack", "plank", "situp"].map((anim) => (
+                <button
+                  key={anim}
+                  type="button"
+                  onClick={() => setCurrentAnimation(anim)}
+                  className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
+                    currentAnimation === anim
+                      ? "bg-cyan-500/20 text-cyan-200 border border-cyan-500/40"
+                      : "bg-slate-900/70 text-slate-400 border border-slate-800"
+                  }`}
+                >
+                  {anim.toUpperCase()}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

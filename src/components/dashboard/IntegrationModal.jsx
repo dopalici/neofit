@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import React, { useState } from "react";
 import { Check, Eye, Moon, Sun, X } from "lucide-react";
 import KnowledgeBaseImporter from "../settings/KnowledgeBaseImporter";
@@ -44,18 +43,13 @@ export default function IntegrationModal({
   ];
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+    <div
+      className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity duration-150"
+      role="dialog"
+      aria-modal="true"
+      aria-label="System Settings"
     >
-      <motion.div
-        initial={{ scale: 0.96, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.96, opacity: 0 }}
-        className="system-window nv-modal-surface rounded-2xl p-6 max-w-lg w-full max-h-[86vh] overflow-y-auto"
-      >
+      <div className="system-window nv-modal-surface rounded-2xl p-6 max-w-lg w-full max-h-[86vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-100">System Settings</h2>
@@ -181,7 +175,7 @@ export default function IntegrationModal({
         )}
 
         {activeTab === "knowledge" && <KnowledgeBaseImporter />}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

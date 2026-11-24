@@ -19,7 +19,7 @@ export default function Header({
 
   return (
     <header
-      className="backdrop-blur-md border-b sticky top-0 z-30 transition-colors"
+      className="backdrop-blur-md border-b sticky top-0 z-30 transition-colors safe-top"
       style={{
         backgroundColor: "color-mix(in srgb, var(--nv-bg-elevated) 88%, transparent)",
         borderColor: "var(--nv-border)",

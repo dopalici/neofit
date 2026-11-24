@@ -1,10 +1,10 @@
 // src/App.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
-import Dashboard from "./components/dashboard/Dashboard";
+import { Capacitor } from "@capacitor/core";
 import LandingPage from "./components/landing/LandingPage";
-import HealthDataTest from "./components/HealthDataTest";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
+import { DashboardSkeleton } from "./components/ui/LoadingSkeleton";
 import { fetchHealthData } from "./services/healthService";
 import {
   addMeal as logMealToService,
@@ -24,6 +24,9 @@ import {
   STORAGE_KEYS,
 } from "./utils/storageUtils";
 
+const Dashboard = lazy(() => import("./components/dashboard/Dashboard"));
+const HealthDataTest = lazy(() => import("./components/HealthDataTest"));
+
 const USER_GOALS_KEY = "user-goals";
 
 function buildDefaultGoals() {
@@ -36,6 +39,7 @@ function buildDefaultGoals() {
 }
 
 function App() {
+  const isNativeMobile = Capacitor.isNativePlatform();
   const [isDataFetching, setIsDataFetching] = useState(false);
   const [healthData, setHealthData] = useState(null);
   const [nutritionData, setNutritionData] = useState(null);
@@ -193,49 +197,52 @@ function App() {
       const result = recordCheckIn();
       if (!result.alreadyCompleted) {
         loadHabitData();
-
-        if (result.isMilestone) {
-          alert(
-            `Congratulations! You've reached a ${result.newStreak}-day streak!`
-          );
-        }
-      } else {
-        alert("Already checked in today!");
       }
     } catch (error) {
       console.error("Error recording check-in:", error);
     }
   };
 
+  const dashboardElement = (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <Dashboard
+        userData={userData}
+        healthData={healthData}
+        nutritionData={nutritionData}
+        habitData={habitData}
+        userGoals={userGoals}
+        connectedApps={connectedApps}
+        isDataFetching={isDataFetching}
+        onCheckIn={handleCheckIn}
+        onToggleConnection={toggleAppConnection}
+        onRefreshData={refreshAllData}
+        onSyncNutrition={syncNutritionData}
+        onAddMeal={handleAddMeal}
+        onAddWater={handleAddWater}
+        onUpdateGoals={handleUpdateGoals}
+        onWorkoutLogged={refreshAllData}
+      />
+    </Suspense>
+  );
+
   return (
     <ErrorBoundary fallbackTitle="APPLICATION ERROR">
       <Router>
         <Routes>
           <Route path="/landing" element={<LandingPage />} />
-          <Route path="/health-test" element={<HealthDataTest />} />
           <Route
-            path="/dashboard"
+            path="/health-test"
             element={
-              <Dashboard
-                userData={userData}
-                healthData={healthData}
-                nutritionData={nutritionData}
-                habitData={habitData}
-                userGoals={userGoals}
-                connectedApps={connectedApps}
-                isDataFetching={isDataFetching}
-                onCheckIn={handleCheckIn}
-                onToggleConnection={toggleAppConnection}
-                onRefreshData={refreshAllData}
-                onSyncNutrition={syncNutritionData}
-                onAddMeal={handleAddMeal}
-                onAddWater={handleAddWater}
-                onUpdateGoals={handleUpdateGoals}
-                onWorkoutLogged={refreshAllData}
-              />
+              <Suspense fallback={<DashboardSkeleton />}>
+                <HealthDataTest />
+              </Suspense>
             }
           />
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/dashboard" element={dashboardElement} />
+          <Route
+            path="/"
+            element={isNativeMobile ? dashboardElement : <LandingPage />}
+          />
         </Routes>
       </Router>
     </ErrorBoundary>

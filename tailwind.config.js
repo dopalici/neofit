@@ -13,9 +13,9 @@ module.exports = {
         'matrix-green': '#34d399',
       },
       fontFamily: {
-        'sans': ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-        'display': ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
-        'mono': ['JetBrains Mono', 'ui-monospace', 'monospace'],
+        'sans': ['Sora', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        'display': ['Sora', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        'mono': ['Sora', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
       }
     },
   },

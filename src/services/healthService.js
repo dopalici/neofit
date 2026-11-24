@@ -49,6 +49,8 @@ export const fetchHealthData = async (forceRefresh = false) => {
           weightArr.length > 0 ||
           vo2MaxArr.length > 0;
 
+        const manualWorkouts = getFromStorage(HABIT_STORAGE_KEYS.WORKOUT_LOGS, []);
+
         if (hasHealthKitData) {
           return buildHealthDataSnapshot({
             heartRate: heartRateRes.data,
@@ -59,7 +61,7 @@ export const fetchHealthData = async (forceRefresh = false) => {
             weight: weightArr,
             sleep: sleepRes.data,
             vo2Max: vo2MaxArr,
-            workouts: workoutsRes.data,
+            workouts: [...manualWorkouts, ...workoutsRes.data],
             calories: caloriesArr,
             basalEnergy: basalArr,
             nutrition: nutritionRes.raw || [],
@@ -200,7 +202,7 @@ function buildHealthDataSnapshot({
       data: sortedSpO2,
     },
     steps: {
-      today: latestSteps ? Number(latestSteps.value) : null,
+      today: sumLatestDay(sortedSteps),
       goal: 10000,
       lastUpdated: latestSteps ? formatTime(new Date(latestSteps.date)) : null,
       data: sortedSteps,
@@ -225,7 +227,7 @@ function buildHealthDataSnapshot({
       data: sortedWeight,
     },
     calories: {
-      burned: sortedCalories[0] ? Number(sortedCalories[0].value) : null,
+      burned: sumLatestDay(sortedCalories),
       data: sortedCalories,
     },
     basalEnergy: {
@@ -279,6 +281,64 @@ function buildHealthDataSnapshot({
       },
     },
   };
+}
+
+function sumLatestDay(sortedSamples) {
+  if (!Array.isArray(sortedSamples) || sortedSamples.length === 0) return null;
+  const latestDate = new Date(sortedSamples[0].date);
+  if (Number.isNaN(latestDate.getTime())) {
+    const val = Number(sortedSamples[0].value);
+    return Number.isNaN(val) ? null : Math.round(val);
+  }
+
+  const y = latestDate.getFullYear();
+  const m = latestDate.getMonth();
+  const d = latestDate.getDate();
+
+  const sameDay = sortedSamples.filter((item) => {
+    const dt = new Date(item.date);
+    return dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d;
+  });
+
+  if (sameDay.length <= 1) {
+    const val = Number(sameDay[0]?.value);
+    return Number.isNaN(val) ? null : Math.round(val);
+  }
+
+  // Prefer Apple Watch samples over overlapping iPhone intervals to prevent double counting
+  const prioritized = [...sameDay].sort((a, b) => {
+    const aWatch = /watch/i.test(String(a.source || "")) ? 0 : 1;
+    const bWatch = /watch/i.test(String(b.source || "")) ? 0 : 1;
+    if (aWatch !== bWatch) return aWatch - bWatch;
+    return new Date(a.date) - new Date(b.date);
+  });
+
+  const acceptedIntervals = [];
+  let total = 0;
+
+  for (const sample of prioritized) {
+    const val = Number(sample.value);
+    if (Number.isNaN(val) || val <= 0) continue;
+
+    const start = new Date(sample.date).getTime();
+    const end = sample.endDate ? new Date(sample.endDate).getTime() : NaN;
+    const hasInterval = !Number.isNaN(start) && !Number.isNaN(end) && end > start;
+
+    if (hasInterval) {
+      const overlapsDifferentSource = acceptedIntervals.some(
+        (existing) =>
+          existing.source !== sample.source &&
+          start < existing.end &&
+          end > existing.start
+      );
+      if (overlapsDifferentSource) continue;
+      acceptedIntervals.push({ start, end, source: sample.source || "" });
+    }
+
+    total += val;
+  }
+
+  return Math.round(total);
 }
 
 function formatTime(date) {

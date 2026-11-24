@@ -9,5 +9,14 @@ module.exports = function override(config, env) {
     stream: require.resolve("stream-browserify"),
   };
 
+  // Silence missing source map warning shipped by @mediapipe/tasks-vision (transitive dep of @react-three/drei)
+  config.ignoreWarnings = [
+    ...(config.ignoreWarnings || []),
+    {
+      module: /@mediapipe\/tasks-vision/,
+      message: /Failed to parse source map/,
+    },
+  ];
+
   return config;
 };

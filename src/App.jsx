@@ -13,6 +13,10 @@ import {
 } from "./services/nutritionService";
 import { processEnhancementMetrics } from "./services/healthDataProcessor";
 import {
+  createGoalFromBlueprint,
+  normalizeUserGoals,
+} from "./services/goalEngineService";
+import {
   getFromStorage,
   getHabitData,
   recordCheckIn,
@@ -22,31 +26,26 @@ import {
 
 const USER_GOALS_KEY = "user-goals";
 
-const DEFAULT_USER_GOALS = {
-  handstandPushup: {
-    name: "VERTICAL INVERSION PROTOCOL",
-    type: "strength",
-    progress: 65.2,
-    startDate: "2025-03-28",
-    targetDate: "2025-05-17",
-  },
-  fourMinuteMile: {
-    name: "SUB-4 VELOCITY THRESHOLD",
-    type: "endurance",
-    progress: 38.7,
-    startDate: "2025-02-14",
-    targetDate: "2025-08-27",
-  },
-};
+function buildDefaultGoals() {
+  const hspu = createGoalFromBlueprint("handstand-pushup", { id: "handstand-pushup" });
+  const velocity = createGoalFromBlueprint("aerobic-velocity", { id: "aerobic-velocity" });
+  return {
+    [hspu.id]: hspu,
+    [velocity.id]: velocity,
+  };
+}
 
 function App() {
   const [isDataFetching, setIsDataFetching] = useState(false);
   const [healthData, setHealthData] = useState(null);
   const [nutritionData, setNutritionData] = useState(null);
   const [habitData, setHabitData] = useState(null);
-  const [userGoals, setUserGoals] = useState(() =>
-    getFromStorage(USER_GOALS_KEY, DEFAULT_USER_GOALS)
-  );
+  const [userGoals, setUserGoals] = useState(() => {
+    const stored = getFromStorage(USER_GOALS_KEY, null);
+    return stored && Object.keys(stored).length > 0
+      ? normalizeUserGoals(stored)
+      : buildDefaultGoals();
+  });
 
   // Derive biometric summary metrics dynamically from real health data
   const userData = useMemo(() => {

@@ -300,3 +300,218 @@ test("Phase 3.6: OnboardingFlow completes 3-step wizard and saves goals", () => 
   expect(onUpdateGoals).toHaveBeenCalledTimes(1);
   expect(onComplete).toHaveBeenCalledTimes(1);
 });
+
+test("System v2: regex-safe searchKnowledgeBase handles special characters and ranks verified entries", () => {
+  const { searchKnowledgeBase } = require("./services/obsidianParser");
+  const mockKb = {
+    "X9-GYMNASTICS-CALISTHENICS": {
+      id: "X9-GYMNASTICS-CALISTHENICS",
+      title: "X9. Gymnastics / Calisthenics",
+      category: "Sports & Physical Skills",
+      summary: "Progressive bodyweight skill acquisition including handstand push-ups and muscle-ups.",
+      keyPoints: ["Straight-arm & bent-arm scapular conditioning"],
+      content: "Handstand push-up progressions require vertical pressing strength and scapular stability.",
+      citationCount: 3,
+      tags: ["calisthenics", "handstand"],
+    },
+    "C1-CALORIC-TARGETS": {
+      id: "C1-CALORIC-TARGETS",
+      title: "C1. Caloric Targets",
+      category: "Sports Nutrition",
+      summary: "Energy intake targets for fat loss and lean muscle gain.",
+      content: "Caloric deficit and surplus guidance.",
+      citationCount: 2,
+      tags: ["nutrition"],
+    },
+  };
+
+  // Special regex chars must never throw
+  const results = searchKnowledgeBase(mockKb, "handstand (push-up) + calisthenics?", 5);
+  expect(results).toHaveLength(1);
+  expect(results[0].id).toBe("X9-GYMNASTICS-CALISTHENICS");
+});
+
+test("System v2: Goal & Readiness Engine autoregulates quests, levels up rungs, and compresses AI telemetry", () => {
+  const {
+    advanceGoalRung,
+    buildAITelemetryBrief,
+    computeProgressionSummary,
+    computeReadinessAssessment,
+    createGoalFromBlueprint,
+    generateDailyQuests,
+    recordSubjectiveReadiness,
+    toggleDailyQuest,
+  } = require("./services/goalEngineService");
+
+  const goal = createGoalFromBlueprint("strict-muscle-up", { id: "strict-muscle-up" });
+  const goals = { [goal.id]: goal };
+
+  // 1. Subjective readiness check-in gives immediate autoregulated score without Apple Health
+  let state = recordSubjectiveReadiness({ sleepHours: 8, energy: 5, soreness: 1 });
+  let readiness = computeReadinessAssessment({}, { protein: { consumed: 60, goal: 150 } }, state);
+  expect(readiness.source).toBe("SUBJECTIVE CHECK-IN");
+  expect(readiness.zone).toBe("PEAK");
+  expect(readiness.bottleneck.type).toBe("protein");
+
+  // 2. Poor Apple Health biometrics trigger RECOVER deload shield
+  const lowReadiness = computeReadinessAssessment(
+    {
+      source: "Apple HealthKit",
+      sleep: { duration: 4.5 },
+      heartRateVariability: { current: 24 },
+      restingHeartRate: { current: 78 },
+      workouts: { data: [] },
+    },
+    { protein: { consumed: 140, goal: 140 } },
+    state
+  );
+  expect(lowReadiness.zone).toBe("RECOVER");
+  const recoverQuests = generateDailyQuests(goals, lowReadiness, { protein: { consumed: 140, goal: 140 } }, state);
+  expect(recoverQuests[0].badge).toBe("DELOAD SHIELD");
+
+  // 3. Completing a daily quest awards XP and raises 14-day rolling consistency
+  const peakQuests = generateDailyQuests(goals, readiness, { protein: { consumed: 60, goal: 150 } }, state);
+  state = toggleDailyQuest(peakQuests[0].id, peakQuests[0].xp);
+  const progAfterQuest = computeProgressionSummary(state);
+  expect(progAfterQuest.xp).toBeGreaterThanOrEqual(65);
+  expect(progAfterQuest.consistency14d).toBeGreaterThan(0);
+
+  // 4. Passing a skill rung advances currentRungIndex and calculates real progress
+  const { updatedGoals, xpAwarded } = advanceGoalRung(goals, goal.id);
+  expect(xpAwarded).toBe(120);
+  expect(updatedGoals[goal.id].currentRungIndex).toBe(1);
+  expect(updatedGoals[goal.id].progress).toBe(20);
+
+  // 5. AI telemetry brief stays ultra-compact (<1200 chars)
+  const brief = buildAITelemetryBrief({
+    healthData: { sleep: { duration: 7.5 }, heartRateVariability: { current: 64 } },
+    nutritionData: { calories: { consumed: 1800, goal: 2200 }, protein: { consumed: 120, goal: 150 } },
+    goals: updatedGoals,
+    readiness,
+    progression: progAfterQuest,
+  });
+  expect(JSON.stringify(brief).length).toBeLessThan(1200);
+  expect(brief.activeGoals[0].rung).toMatch(/^2\/5/);
+});
+
+test("System v2: chatbotService supports Gemini Flash/Flash-Lite auto-routing and Production Proxy", async () => {
+  const {
+    configureAI,
+    getAIConfig,
+    resolveGeminiModel,
+    generateFitnessAdvice,
+    clearConversationHistory,
+  } = require("./services/chatbotService");
+
+  expect(resolveGeminiModel("auto", "Quick check-in: how much water?")).toBe("gemini-2.5-flash-lite");
+  expect(resolveGeminiModel("auto", "Build me a 4-week handstand skill progression plan")).toBe("gemini-2.5-flash");
+
+  clearConversationHistory();
+  configureAI({ provider: "gemini", apiKey: "test-gemini-key", model: "auto" });
+  expect(getAIConfig().provider).toBe("gemini");
+
+  const originalFetch = global.fetch;
+  global.fetch = jest.fn(async (url) => {
+    if (String(url).includes("generativelanguage.googleapis.com")) {
+      return {
+        ok: true,
+        json: async () => ({
+          candidates: [
+            {
+              content: {
+                parts: [{ text: "Verdict: Push Rung 2 elevated pike push-ups today [X9-GYMNASTICS-CALISTHENICS]." }],
+              },
+            },
+          ],
+        }),
+      };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  });
+
+  const reply = await generateFitnessAdvice(
+    "Give me a progression plan for my handstand skill",
+    {},
+    {}
+  );
+  expect(reply.provider).toBe("gemini");
+  expect(reply.model).toBe("gemini-2.5-flash");
+  expect(reply.content).toMatch(/Rung 2/i);
+
+  // Verify Proxy mode calls /api/coach without needing a client API key
+  configureAI({ provider: "proxy", apiKey: "", endpoint: "/api/coach", model: "auto" });
+  global.fetch = jest.fn(async (url) => {
+    if (String(url) === "/api/coach") {
+      return {
+        ok: true,
+        json: async () => ({
+          content: "Proxy verdict: Hit 35g protein post-session.",
+          model: "gemini-2.5-flash-lite",
+        }),
+      };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  });
+
+  const proxyReply = await generateFitnessAdvice("Protein target?", {}, {});
+  expect(proxyReply.provider).toBe("proxy");
+  expect(proxyReply.content).toMatch(/35g protein/i);
+
+  global.fetch = originalFetch;
+});
+
+test("System v2: SystemCommandCenter & GoalStudioModal complete quests, pass rungs, and activate new skills", () => {
+  const SystemCommandCenter = require("./components/dashboard/SystemCommandCenter").default;
+  const GoalStudioModal = require("./components/dashboard/GoalStudioModal").default;
+  const {
+    computeProgressionSummary,
+    computeReadinessAssessment,
+    createGoalFromBlueprint,
+    generateDailyQuests,
+    generateLiteralInsights,
+    getSystemState,
+  } = require("./services/goalEngineService");
+
+  const goal = createGoalFromBlueprint("handstand-pushup", { id: "handstand-pushup" });
+  const goals = { [goal.id]: goal };
+  const state = getSystemState();
+  const readiness = computeReadinessAssessment({}, {}, state);
+  const progression = computeProgressionSummary(state);
+  const quests = generateDailyQuests(goals, readiness, {}, state);
+  const insights = generateLiteralInsights(goals, readiness, {}, progression);
+
+  const onToggleQuest = jest.fn();
+  const onAdvanceRung = jest.fn();
+  const onOpenGoalStudio = jest.fn();
+
+  render(
+    <SystemCommandCenter
+      goals={goals}
+      readiness={readiness}
+      progression={progression}
+      dailyQuests={quests}
+      literalInsights={insights}
+      onToggleQuest={onToggleQuest}
+      onAdvanceRung={onAdvanceRung}
+      onOpenGoalStudio={onOpenGoalStudio}
+    />
+  );
+
+  expect(screen.getByText(/TODAY’S SYSTEM QUESTS/i)).toBeInTheDocument();
+  expect(screen.getByText(/GOAL & PHYSICAL SKILL LADDER/i)).toBeInTheDocument();
+
+  fireEvent.click(screen.getByText(/PASS BENCHMARK & LEVEL UP/i));
+  expect(onAdvanceRung).toHaveBeenCalledWith("handstand-pushup");
+
+  fireEvent.click(screen.getByText(/NEW GOAL \/ SKILL/i));
+  expect(onOpenGoalStudio).toHaveBeenCalledTimes(1);
+
+  // Test GoalStudioModal blueprint activation
+  const onAddGoal = jest.fn();
+  render(<GoalStudioModal isOpen={true} onClose={jest.fn()} onAddGoal={onAddGoal} />);
+  fireEvent.click(screen.getByText(/Strict Bar \/ Ring Muscle-Up/i));
+  fireEvent.click(screen.getByText(/ACTIVATE PROTOCOL/i));
+  expect(onAddGoal).toHaveBeenCalledTimes(1);
+  expect(onAddGoal.mock.calls[0][0].blueprintId).toBe("strict-muscle-up");
+});
+

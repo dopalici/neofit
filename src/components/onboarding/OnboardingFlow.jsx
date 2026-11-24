@@ -2,15 +2,23 @@
 import React, { useState } from "react";
 import { Check, ChevronRight, Heart, Shield, Target } from "lucide-react";
 import appleHealthService from "../../services/appleHealthService";
+import { createGoalFromBlueprint } from "../../services/goalEngineService";
 import { updateNutritionGoals } from "../../services/nutritionService";
 import { saveToStorage } from "../../utils/storageUtils";
 
 export const ONBOARDING_STORAGE_KEY = "onboarding-completed";
 
+const ONBOARDING_BLUEPRINTS = [
+  { id: "handstand-pushup", label: "HANDSTAND PUSH-UP (SKILL)" },
+  { id: "strict-muscle-up", label: "STRICT MUSCLE-UP (SKILL)" },
+  { id: "aerobic-velocity", label: "SUB-20 5K / VO2 MAX" },
+  { id: "strength-foundation", label: "STRENGTH & HYPERTROPHY" },
+];
+
 export default function OnboardingFlow({ onComplete, onUpdateGoals }) {
   const [step, setStep] = useState(0);
   const [healthStatus, setHealthStatus] = useState("idle");
-  const [primaryGoal, setPrimaryGoal] = useState("strength");
+  const [primaryGoal, setPrimaryGoal] = useState("handstand-pushup");
   const [calorieGoal, setCalorieGoal] = useState(2200);
   const [proteinGoal, setProteinGoal] = useState(140);
 
@@ -35,26 +43,10 @@ export default function OnboardingFlow({ onComplete, onUpdateGoals }) {
       protein: Number(proteinGoal) || 140,
     });
 
-    const selectedGoals =
-      primaryGoal === "endurance"
-        ? {
-            fourMinuteMile: {
-              name: "AEROBIC VELOCITY PROTOCOL",
-              type: "endurance",
-              progress: 10,
-              startDate: new Date().toISOString().slice(0, 10),
-              targetDate: new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10),
-            },
-          }
-        : {
-            handstandPushup: {
-              name: "STRENGTH PROGRESSION PROTOCOL",
-              type: "strength",
-              progress: 10,
-              startDate: new Date().toISOString().slice(0, 10),
-              targetDate: new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10),
-            },
-          };
+    const created = createGoalFromBlueprint(primaryGoal);
+    const selectedGoals = {
+      [created.id]: created,
+    };
 
     saveToStorage(ONBOARDING_STORAGE_KEY, {
       completed: true,
@@ -196,10 +188,7 @@ export default function OnboardingFlow({ onComplete, onUpdateGoals }) {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              {[
-                { id: "strength", label: "STRENGTH & HYPERTROPHY" },
-                { id: "endurance", label: "CARDIO & ENDURANCE" },
-              ].map((opt) => (
+              {ONBOARDING_BLUEPRINTS.map((opt) => (
                 <button
                   key={opt.id}
                   type="button"

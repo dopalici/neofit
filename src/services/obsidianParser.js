@@ -172,83 +172,124 @@ export async function processObsidianFiles(files) {
   }
 }
 
-// Search knowledge base for relevant entries
+const SEARCH_STOP_WORDS = new Set([
+  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'can', 'do', 'for', 'from',
+  'how', 'i', 'in', 'is', 'it', 'me', 'my', 'of', 'on', 'or', 'should', 'that',
+  'the', 'this', 'to', 'what', 'when', 'with', 'you', 'your'
+]);
+
+function escapeRegExp(str = '') {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Search knowledge base for relevant entries using safe multi-field weighted scoring
 export function searchKnowledgeBase(knowledgeBase, query, limit = 5) {
-  if (!knowledgeBase || Object.keys(knowledgeBase).length === 0) {
+  if (!knowledgeBase || Object.keys(knowledgeBase).length === 0 || !query) {
     return [];
   }
-  
-  const searchTerms = query.toLowerCase().split(' ');
+
+  const normalizedQuery = String(query).toLowerCase().trim();
+  if (!normalizedQuery) return [];
+
+  const rawTokens = normalizedQuery
+    .split(/[^a-z0-9-]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2);
+
+  const meaningfulTokens = rawTokens.filter((t) => !SEARCH_STOP_WORDS.has(t));
+  const searchTerms = meaningfulTokens.length > 0 ? meaningfulTokens : rawTokens;
+  if (searchTerms.length === 0) return [];
+
+  const termRegexes = searchTerms.map((term) => new RegExp(escapeRegExp(term), 'g'));
   const results = [];
-  
-  // Search through entries
-  Object.values(knowledgeBase).forEach(entry => {
-    const content = entry.content.toLowerCase();
-    const title = entry.title.toLowerCase();
-    const id = entry.id.toLowerCase();
-    
-    // Calculate score based on matches
+
+  Object.values(knowledgeBase).forEach((entry) => {
+    if (!entry || typeof entry !== 'object') return;
+    const content = String(entry.content || '').toLowerCase();
+    const title = String(entry.title || '').toLowerCase();
+    const summary = String(entry.summary || '').toLowerCase();
+    const id = String(entry.id || '').toLowerCase();
+    const category = String(entry.category || '').toLowerCase();
+    const keyPointsText = Array.isArray(entry.keyPoints)
+      ? entry.keyPoints.join(' ').toLowerCase()
+      : '';
+    const tags = Array.isArray(entry.tags) ? entry.tags.map((t) => String(t).toLowerCase()) : [];
+
     let score = 0;
-    
-    // Check title and ID matches (weighted higher)
-    searchTerms.forEach(term => {
-      if (title.includes(term)) score += 10;
-      if (id.includes(term)) score += 8;
-      
-      // Count content matches
-      const contentMatches = (content.match(new RegExp(term, 'g')) || []).length;
-      score += contentMatches;
-      
-      // Check tag matches
-      if (entry.tags) {
-        entry.tags.forEach(tag => {
-          if (tag.toLowerCase().includes(term)) score += 5;
-        });
+    let matchedTerms = 0;
+
+    // Exact phrase match bonus in title or summary
+    if (normalizedQuery.length >= 4) {
+      if (title.includes(normalizedQuery)) score += 35;
+      else if (summary.includes(normalizedQuery)) score += 18;
+    }
+
+    searchTerms.forEach((term, idx) => {
+      let termHit = false;
+      if (title.includes(term)) {
+        score += 14;
+        termHit = true;
       }
-      
-      // Check category matches (if available)
-      if (entry.category && entry.category.toLowerCase().includes(term)) {
+      if (id.includes(term)) {
+        score += 9;
+        termHit = true;
+      }
+      if (category.includes(term)) {
         score += 7;
+        termHit = true;
       }
+      if (summary.includes(term) || keyPointsText.includes(term)) {
+        score += 6;
+        termHit = true;
+      }
+      if (tags.some((tag) => tag.includes(term))) {
+        score += 6;
+        termHit = true;
+      }
+
+      const matches = content.match(termRegexes[idx]);
+      if (matches && matches.length > 0) {
+        // Diminishing returns for repeated mentions (BM25-style saturation)
+        score += Math.min(8, Math.round(Math.log2(matches.length + 1) * 3));
+        termHit = true;
+      }
+
+      if (termHit) matchedTerms += 1;
     });
-    
+
     if (score > 0) {
+      // Multi-term coverage boost & evidence credibility bonus
+      const coverageBoost = searchTerms.length > 1 ? (matchedTerms / searchTerms.length) * 12 : 0;
+      const citationBonus = Math.min(4, Number(entry.citationCount) || 0);
+      const totalScore = Number((score + coverageBoost + citationBonus).toFixed(2));
+
       results.push({
         id: entry.id,
         title: entry.title,
-        score: score,
-        excerpt: generateExcerpt(content, searchTerms[0]),
-        category: entry.category
+        score: totalScore,
+        excerpt: entry.summary || generateExcerpt(content, searchTerms[0]),
+        category: entry.category,
       });
     }
   });
-  
-  // Sort by score (highest first)
+
   results.sort((a, b) => b.score - a.score);
-  
-  // Return top results
   return results.slice(0, limit);
 }
 
 // Generate a relevant excerpt from content based on search term
-function generateExcerpt(content, searchTerm, length = 150) {
-  const index = content.toLowerCase().indexOf(searchTerm.toLowerCase());
-  
+function generateExcerpt(content, searchTerm, length = 160) {
+  const safeContent = String(content || '');
+  const index = safeContent.toLowerCase().indexOf(String(searchTerm || '').toLowerCase());
+
   if (index === -1) {
-    // If term not found, return beginning of content
-    return content.substr(0, length) + '...';
+    return safeContent.slice(0, length) + (safeContent.length > length ? '...' : '');
   }
-  
-  // Calculate start position (try to include context before match)
+
   const start = Math.max(0, index - 50);
-  
-  // Get excerpt with search term in middle
-  let excerpt = content.substr(start, length);
-  
-  // Add ellipsis if we're not at the beginning/end
+  let excerpt = safeContent.slice(start, start + length);
   if (start > 0) excerpt = '...' + excerpt;
-  if (start + length < content.length) excerpt += '...';
-  
+  if (start + length < safeContent.length) excerpt += '...';
   return excerpt;
 }
 

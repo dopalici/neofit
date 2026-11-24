@@ -11,6 +11,12 @@ import {
   loadDefaultKnowledgeBase
 } from './knowledgeBaseService';
 import { processEnhancementMetrics } from './healthDataProcessor';
+import {
+  buildAITelemetryBrief,
+  computeProgressionSummary,
+  computeReadinessAssessment,
+  getSystemState,
+} from './goalEngineService';
 import { getFromStorage, saveToStorage } from '../utils/storageUtils';
 
 const AI_CONFIG_KEY = 'ai-advisor-config';
@@ -19,35 +25,59 @@ const MAX_HISTORY_MESSAGES = 12;
 const MAX_REQUESTS_PER_MINUTE = 15;
 const requestTimestamps = [];
 
+export const DEFAULT_PROVIDER_SETTINGS = {
+  gemini: {
+    model: 'gemini-2.5-flash-lite',
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models',
+  },
+  proxy: {
+    model: 'auto',
+    endpoint: process.env.REACT_APP_AI_PROXY_URL || '/api/coach',
+  },
+  openai: {
+    model: 'gpt-4o-mini',
+    endpoint: 'https://api.openai.com/v1/chat/completions',
+  },
+  anthropic: {
+    model: 'claude-3-5-sonnet-20241022',
+    endpoint: 'https://api.anthropic.com/v1/messages',
+  },
+  local: {
+    model: 'fitlib-local-rag',
+    endpoint: '',
+  },
+};
+
 /**
  * Get current AI provider configuration (localStorage overrides env vars)
  */
 export function getAIConfig() {
   const stored = getFromStorage(AI_CONFIG_KEY, null) || {};
+  const envGemini = process.env.REACT_APP_GEMINI_API_KEY || '';
+  const envProxy = process.env.REACT_APP_AI_PROXY_URL || '';
   const envOpenAI = process.env.REACT_APP_OPENAI_API_KEY || process.env.REACT_APP_AI_API_KEY || '';
   const envAnthropic = process.env.REACT_APP_ANTHROPIC_API_KEY || '';
 
   const provider =
     stored.provider ||
     process.env.REACT_APP_AI_PROVIDER ||
-    (envOpenAI ? 'openai' : envAnthropic ? 'anthropic' : 'local');
+    (envProxy ? 'proxy' : envGemini ? 'gemini' : envOpenAI ? 'openai' : envAnthropic ? 'anthropic' : 'local');
+
+  const defaults = DEFAULT_PROVIDER_SETTINGS[provider] || DEFAULT_PROVIDER_SETTINGS.local;
 
   const apiKey =
     stored.apiKey !== undefined
       ? stored.apiKey
+      : provider === 'gemini'
+      ? envGemini
       : provider === 'anthropic'
       ? envAnthropic
-      : envOpenAI;
+      : provider === 'openai'
+      ? envOpenAI
+      : '';
 
-  const model =
-    stored.model ||
-    (provider === 'anthropic' ? 'claude-3-5-sonnet-20241022' : 'gpt-4o-mini');
-
-  const endpoint =
-    stored.endpoint ||
-    (provider === 'anthropic'
-      ? 'https://api.anthropic.com/v1/messages'
-      : 'https://api.openai.com/v1/chat/completions');
+  const model = stored.model || defaults.model;
+  const endpoint = stored.endpoint || defaults.endpoint;
 
   return { provider, apiKey, model, endpoint };
 }
@@ -57,7 +87,22 @@ export function getAIConfig() {
  */
 export function configureAI(config) {
   const current = getAIConfig();
-  const next = { ...current, ...config };
+  const nextProvider = config.provider || current.provider;
+  const providerChanged = config.provider && config.provider !== current.provider;
+  const defaults = DEFAULT_PROVIDER_SETTINGS[nextProvider] || DEFAULT_PROVIDER_SETTINGS.local;
+
+  const next = {
+    ...current,
+    ...config,
+    provider: nextProvider,
+    model: config.model || (providerChanged ? defaults.model : current.model || defaults.model),
+    endpoint:
+      config.endpoint !== undefined
+        ? config.endpoint
+        : providerChanged
+        ? defaults.endpoint
+        : current.endpoint || defaults.endpoint,
+  };
   saveToStorage(AI_CONFIG_KEY, next);
   return next;
 }
@@ -461,67 +506,149 @@ function generateKnowledgeBasedResponse(query, userData, userGoals) {
   };
 }
 
+const DEEP_QUERY_REGEX =
+  /\b(program|plan|week|periodiz|progression|skill|rung|handstand|muscle[- ]?up|deload|injury|pain|plateau|recomp|macro|protocol)\b/i;
+
 /**
- * Build a token-budgeted system prompt combining user biometrics, goals, and top KB entries.
+ * Resolve the cheapest capable Gemini model for a query when set to 'auto'.
  */
-function buildSystemPrompt(userData, userGoals, relevantEntries = []) {
-  const metricsSummary = userData?.enhancementMetrics
-    ? JSON.stringify({
-        enhancementScores: userData.enhancementMetrics.enhancementScores,
-        individualMetrics: userData.enhancementMetrics.individualMetrics,
-        cardiovascular: userData.enhancementMetrics.cardiovascular,
-        sleep: userData.enhancementMetrics.sleep,
-      })
-    : 'No biometric data synced yet.';
+export function resolveGeminiModel(requestedModel = 'gemini-2.5-flash-lite', query = '') {
+  if (requestedModel && requestedModel !== 'auto') {
+    return requestedModel;
+  }
+  return query.length > 160 || DEEP_QUERY_REGEX.test(query)
+    ? 'gemini-2.5-flash'
+    : 'gemini-2.5-flash-lite';
+}
 
-  const nutritionSummary = userData?.nutritionData
-    ? JSON.stringify({
-        calories: userData.nutritionData.calories,
-        protein: userData.nutritionData.protein,
-        carbs: userData.nutritionData.carbs,
-        fat: userData.nutritionData.fat,
-        water: userData.nutritionData.water,
-      })
-    : 'No nutrition logged today.';
+/**
+ * Build a token-budgeted system prompt combining compact physiological telemetry,
+ * active skill rungs, WOOP obstacle plans, and verified FitLib Vault excerpts.
+ */
+export function buildSystemPrompt(userData, userGoals, relevantEntries = []) {
+  const systemState = userData?.systemState || getSystemState();
+  const readiness =
+    userData?.readiness ||
+    computeReadinessAssessment(userData?.healthData, userData?.nutritionData, systemState);
+  const progression = userData?.progression || computeProgressionSummary(systemState);
 
-  const goalsSummary = userGoals ? JSON.stringify(userGoals) : 'No specific goals configured.';
+  const telemetryBrief = buildAITelemetryBrief({
+    healthData: userData?.healthData,
+    nutritionData: userData?.nutritionData,
+    goals: userGoals,
+    readiness,
+    progression,
+  });
 
   const kbContext =
     relevantEntries.length > 0
       ? relevantEntries
-          .map(
-            (entry) =>
-              `[${entry.id}] ${entry.title}\n${trimToTokenBudget(entry.content || entry.summary || '', 300)}`
-          )
+          .map((entry) => {
+            const cites =
+              Array.isArray(entry.citations) && entry.citations.length > 0
+                ? `\nVerified citations: ${entry.citations
+                    .slice(0, 3)
+                    .map((c) => `${c.author || 'Study'} (${c.year || 'n.d.'})${c.doi ? ` ${c.doi}` : ''}`)
+                    .join('; ')}`
+                : '';
+            const keyPts =
+              Array.isArray(entry.keyPoints) && entry.keyPoints.length > 0
+                ? `\nKey points: ${entry.keyPoints.slice(0, 4).join(' | ')}`
+                : '';
+            return `[${entry.id}] ${entry.title}${keyPts}\n${trimToTokenBudget(
+              entry.summary || entry.content || '',
+              240
+            )}${cites}`;
+          })
           .join('\n\n')
-      : 'No matching knowledge base entries found.';
+      : 'No matching FitLib Vault entries found.';
 
   return trimToTokenBudget(
-    `You are NEO•VITRU's evidence-based fitness and human optimization advisor.
-Provide concise, actionable, science-backed guidance tailored to the user's biometrics, goals, and knowledge base context. Cite relevant studies or knowledge base IDs when applicable.
+    `You are NEO•VITRU's evidence-based performance coach (Solo-Leveling System Mentor).
+RULES:
+1. Be direct, crisp, and actionable so the user understands what to do in under 30 seconds.
+2. Always anchor recommendations to the user's READINESS ZONE (PEAK = progress, CALIBRATE = -25% volume technical work, RECOVER = deload/Zone 2) and their ACTIVE SKILL RUNG exit criteria.
+3. Ground advice in the VERIFIED FITLIB VAULT CONTEXT below; cite node IDs like [X9-GYMNASTICS-CALISTHENICS] when relevant. Never fabricate studies or biometric readings that are null.
+4. Structure answers clearly: Verdict -> Exact Next Steps -> Why (Physiology/FitLib citation).
 
-USER BIOMETRICS:
-${metricsSummary}
+USER TELEMETRY BRIEF (APPLE HEALTH + GOALS + READINESS):
+${JSON.stringify(telemetryBrief)}
 
-USER NUTRITION:
-${nutritionSummary}
-
-USER GOALS:
-${goalsSummary}
-
-KNOWLEDGE BASE CONTEXT:
+VERIFIED FITLIB VAULT CONTEXT:
 ${kbContext}`,
-    1600
+    1900
   );
 }
 
 /**
- * Call configured external AI provider (OpenAI-compatible or Anthropic Claude)
+ * Call configured external AI provider (Google Gemini, Production Proxy, OpenAI, or Anthropic)
  */
 async function callAIProvider(config, systemPrompt, history, query) {
-  const recentHistory = history
-    .slice(-6)
-    .map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: trimToTokenBudget(m.content, 200) }));
+  const recentHistory = history.slice(-6).map((m) => ({
+    role: m.role === 'assistant' ? 'assistant' : 'user',
+    content: trimToTokenBudget(m.content, 200),
+  }));
+
+  if (config.provider === 'proxy') {
+    const response = await fetch(config.endpoint || '/api/coach', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+      },
+      body: JSON.stringify({
+        query,
+        systemPrompt,
+        history: recentHistory,
+        model: config.model || 'auto',
+        mode: DEEP_QUERY_REGEX.test(query) ? 'deep' : 'auto',
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Coach Proxy error (${response.status})`);
+    }
+    const data = await response.json();
+    if (!data?.content) throw new Error('Empty response from Coach Proxy');
+    return { content: data.content, modelUsed: data.model || config.model };
+  }
+
+  if (config.provider === 'gemini') {
+    const model = resolveGeminiModel(config.model, query);
+    const baseUrl = (config.endpoint || DEFAULT_PROVIDER_SETTINGS.gemini.endpoint).replace(/\/$/, '');
+    const url = `${baseUrl}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(
+      config.apiKey
+    )}`;
+
+    const contents = [
+      ...recentHistory.map((m) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      })),
+      { role: 'user', parts: [{ text: query }] },
+    ];
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents,
+        generationConfig: {
+          temperature: 0.35,
+          maxOutputTokens: 750,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API error (${response.status})`);
+    }
+    const data = await response.json();
+    const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!content) throw new Error('Empty response from Gemini API');
+    return { content, modelUsed: model };
+  }
 
   if (config.provider === 'anthropic') {
     const response = await fetch(config.endpoint, {
@@ -545,10 +672,10 @@ async function callAIProvider(config, systemPrompt, history, query) {
     const data = await response.json();
     const content = data?.content?.[0]?.text;
     if (!content) throw new Error('Empty response from Anthropic API');
-    return content;
+    return { content, modelUsed: config.model };
   }
 
-  // Default: OpenAI-compatible chat completions endpoint
+  // OpenAI-compatible chat completions endpoint
   const response = await fetch(config.endpoint, {
     method: 'POST',
     headers: {
@@ -573,12 +700,37 @@ async function callAIProvider(config, systemPrompt, history, query) {
   const data = await response.json();
   const content = data?.choices?.[0]?.message?.content;
   if (!content) throw new Error('Empty response from OpenAI API');
-  return content;
+  return { content, modelUsed: config.model };
+}
+
+/**
+ * Enrich search results with any directly linked FitLib node IDs from the user's active goal rung.
+ */
+function collectRelevantWithGoalRefs(query, userContext, userGoals, limit = 4) {
+  const searched = findRelevantKnowledge(query, userContext, limit);
+  const kb = getKnowledgeBase();
+  const seen = new Set(searched.map((e) => e.id));
+  const combined = [...searched];
+
+  if (userGoals && typeof userGoals === 'object' && combined.length < limit) {
+    Object.values(userGoals).forEach((goal) => {
+      const rung = goal?.rungs?.[goal?.currentRungIndex];
+      const refs = Array.isArray(rung?.kbRefs) ? rung.kbRefs : [];
+      refs.forEach((refId) => {
+        if (combined.length < limit && !seen.has(refId) && kb[refId]) {
+          seen.add(refId);
+          combined.push(kb[refId]);
+        }
+      });
+    });
+  }
+
+  return combined.slice(0, limit);
 }
 
 /**
  * Generate fitness advice based on user's query, health data, goals, and knowledge base.
- * Uses configured AI provider when available and falls back to local KB retrieval.
+ * Uses configured AI provider (Gemini, Proxy, OpenAI, Anthropic) and falls back cleanly to local FitLib RAG.
  * @param {string} query - The user's question
  * @param {Object} userData - User health data
  * @param {Object} userGoals - User goals data
@@ -594,12 +746,10 @@ export const generateFitnessAdvice = async (query, userData, userGoals) => {
     };
   }
 
-  // Ensure the pre-indexed FitLib knowledge base is loaded
   if (!isKnowledgeBaseReady()) {
     await loadDefaultKnowledgeBase();
   }
 
-  // Process user data if needed
   const processedUserData = { ...(userData || {}) };
   if (userData?.healthData && !userData.enhancementMetrics) {
     processedUserData.enhancementMetrics = processEnhancementMetrics(userData.healthData);
@@ -614,20 +764,28 @@ export const generateFitnessAdvice = async (query, userData, userGoals) => {
   };
 
   const relevantEntries = isKnowledgeBaseReady()
-    ? findRelevantKnowledge(query, userContext, 3)
+    ? collectRelevantWithGoalRefs(query, userContext, userGoals, 4)
     : [];
 
   const history = getConversationHistory();
   appendConversationHistory('user', query);
 
-  // Attempt configured external AI provider if API key is present
   const aiConfig = getAIConfig();
-  if (aiConfig.provider !== 'local' && aiConfig.apiKey) {
+  const canCallRemote =
+    (aiConfig.provider === 'proxy' && Boolean(aiConfig.endpoint)) ||
+    (aiConfig.provider !== 'local' && aiConfig.provider !== 'proxy' && Boolean(aiConfig.apiKey));
+
+  if (canCallRemote) {
     try {
       const systemPrompt = buildSystemPrompt(processedUserData, userGoals, relevantEntries);
-      const aiText = await callAIProvider(aiConfig, systemPrompt, history, query);
+      const { content: aiText, modelUsed } = await callAIProvider(
+        aiConfig,
+        systemPrompt,
+        history,
+        query
+      );
       const extractedRefs = extractReferences(aiText);
-      const kbRefs = relevantEntries.map((e) => e.title).filter(Boolean);
+      const kbRefs = relevantEntries.map((e) => `${e.id}: ${e.title}`).filter(Boolean);
       const references = [...new Set([...extractedRefs, ...kbRefs])].slice(0, 5);
 
       appendConversationHistory('assistant', aiText);
@@ -638,13 +796,22 @@ export const generateFitnessAdvice = async (query, userData, userGoals) => {
         sourceEntryId: relevantEntries[0]?.id,
         sourceEntryTitle: relevantEntries[0]?.title,
         provider: aiConfig.provider,
+        model: modelUsed,
       };
     } catch (error) {
       console.warn('External AI API unavailable, falling back to local knowledge base:', error);
     }
   }
 
-  // Local Knowledge Base RAG fallback
+  // Local Knowledge Base RAG fallback (enriched with readiness context)
+  const readiness =
+    processedUserData.readiness ||
+    computeReadinessAssessment(
+      processedUserData.healthData,
+      processedUserData.nutritionData,
+      processedUserData.systemState || getSystemState()
+    );
+
   const response = isKnowledgeBaseReady()
     ? generateKnowledgeBasedResponse(query, processedUserData, userGoals)
     : (() => {
@@ -661,11 +828,17 @@ export const generateFitnessAdvice = async (query, userData, userGoals) => {
         return fallbackResponses.default;
       })();
 
-  appendConversationHistory('assistant', response.content);
+  const readinessPrefix =
+    readiness.score !== null
+      ? `[System Readiness: ${readiness.score}/100 · ${readiness.zone}] ${readiness.intensityGuidance}\n\n`
+      : '';
+  const finalContent = `${readinessPrefix}${response.content}`;
+
+  appendConversationHistory('assistant', finalContent);
 
   return {
     role: 'assistant',
-    content: response.content,
+    content: finalContent,
     references: response.references,
     sourceEntryId: response.sourceEntryId,
     sourceEntryTitle: response.sourceEntryTitle,

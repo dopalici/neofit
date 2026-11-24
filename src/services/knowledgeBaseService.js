@@ -9,22 +9,28 @@ import {
 
 // In-memory storage for the knowledge base
 let fitnessKnowledgeBase = {};
+let knowledgeBaseMeta = null;
 let isInitialized = false;
+const MAX_LOCALSTORAGE_BYTES = 1500000;
 
 /**
- * Store the processed knowledge base in memory and localStorage
+ * Store the processed knowledge base in memory (and localStorage only when small enough)
  * @param {Object} processedContent - Processed knowledge base content
  */
 export function storeKnowledgeBase(processedContent) {
   fitnessKnowledgeBase = processedContent;
   isInitialized = true;
-  
-  // Also store in localStorage for persistence
+
   try {
-    localStorage.setItem('fitnessKnowledgeBase', JSON.stringify(processedContent));
+    const serialized = JSON.stringify(processedContent);
+    if (serialized.length <= MAX_LOCALSTORAGE_BYTES) {
+      localStorage.setItem('fitnessKnowledgeBase', serialized);
+    } else {
+      // Remove stale oversized cache so iOS/Safari WebView storage quota stays healthy
+      localStorage.removeItem('fitnessKnowledgeBase');
+    }
   } catch (error) {
-    // Handle localStorage errors (e.g., quota exceeded)
-    console.error('Failed to store knowledge base in localStorage:', error);
+    console.warn('Skipping localStorage persistence for large knowledge base:', error);
   }
 }
 
@@ -33,7 +39,6 @@ export function storeKnowledgeBase(processedContent) {
  * @returns {Object} The knowledge base content
  */
 export function getKnowledgeBase() {
-  // Load from localStorage if not in memory
   if (Object.keys(fitnessKnowledgeBase).length === 0) {
     try {
       const stored = localStorage.getItem('fitnessKnowledgeBase');
@@ -62,7 +67,7 @@ export function isKnowledgeBaseInitialized() {
 let defaultLoadPromise = null;
 
 /**
- * Lazily load the pre-indexed FitLib knowledge base from /knowledge-base.json
+ * Lazily load the pre-indexed FitLib Vault knowledge base from /knowledge-base.json
  * if no custom vault has been imported yet.
  */
 export async function loadDefaultKnowledgeBase() {
@@ -71,14 +76,19 @@ export async function loadDefaultKnowledgeBase() {
   }
 
   if (!defaultLoadPromise) {
-    defaultLoadPromise = fetch("/knowledge-base.json")
-      .then((res) => {
+    defaultLoadPromise = Promise.all([
+      fetch("/knowledge-base.json").then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
-      })
-      .then((data) => {
+      }),
+      fetch("/knowledge-base-meta.json")
+        .then((res) => (res.ok ? res.json() : null))
+        .catch(() => null),
+    ])
+      .then(([data, meta]) => {
         if (data && typeof data === "object" && Object.keys(data).length > 0) {
           fitnessKnowledgeBase = data;
+          knowledgeBaseMeta = meta;
           isInitialized = true;
         }
         return fitnessKnowledgeBase;
@@ -94,16 +104,22 @@ export async function loadDefaultKnowledgeBase() {
 }
 
 /**
- * Get summary stats about the loaded knowledge base
+ * Get summary stats & provenance about the loaded knowledge base
  */
 export function getKnowledgeBaseStats() {
   const kb = getKnowledgeBase();
   const entries = Object.values(kb);
   const categories = getCategories(kb);
+  const totalCitations = entries.reduce(
+    (sum, entry) => sum + (Number(entry?.citationCount) || 0),
+    0
+  );
   return {
     totalEntries: entries.length,
+    totalCitations,
     categories,
     isInitialized,
+    meta: knowledgeBaseMeta,
   };
 }
 

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import ScanlineEffect from "../ui/ScanlineEffect";
 import ErrorBoundary from "../ui/ErrorBoundary";
 import { DashboardSkeleton, OfflineBanner } from "../ui/LoadingSkeleton";
@@ -8,24 +9,35 @@ import ActivityLog from "./ActivityLog";
 import BiometricPanel from "./BiometricPanel";
 import EnhancedNutritionPanel from "./EnhancedNutritionPanel";
 import EnhancementMetricsPanel from "./EnhancementMetricsPanel";
-import EnhancementProtocolsPanel from "./EnhancementProtocolsPanel";
+import GoalStudioModal from "./GoalStudioModal";
 import HabitDashboard from "./HabitDashboard";
 import Header from "./Header";
 import HealthDataDashboard from "./HealthDataDashboard";
 import IntegrationModal from "./IntegrationModal";
 import KnowledgeBaseBrowser from "./KnowledgeBaseBrowser";
 import SleepAnalysis from "./SleepAnalysis";
+import SystemCommandCenter from "./SystemCommandCenter";
 import WorkoutLogger from "./WorkoutLogger";
-import { manageChallenge } from "../../services/habitService";
+import {
+  advanceGoalRung,
+  computeProgressionSummary,
+  computeReadinessAssessment,
+  generateDailyQuests,
+  generateLiteralInsights,
+  getSystemState,
+  normalizeUserGoals,
+  recordSubjectiveReadiness,
+  toggleDailyQuest,
+} from "../../services/goalEngineService";
 import { getFromStorage } from "../../utils/storageUtils";
 
 const TABS = [
-  { id: "main", label: "DASHBOARD" },
+  { id: "main", label: "COMMAND CENTER" },
   { id: "workouts", label: "WORKOUTS" },
   { id: "habits", label: "HABIT SYSTEM" },
   { id: "nutrition", label: "NUTRITION" },
   { id: "sleep", label: "SLEEP" },
-  { id: "knowledge", label: "KNOWLEDGE" },
+  { id: "knowledge", label: "FITLIB VAULT" },
   { id: "health", label: "HEALTH DATA" },
 ];
 
@@ -52,7 +64,12 @@ export default function Dashboard({
   });
   const [activeTab, setActiveTab] = useState("main");
   const [showIntegrationModal, setShowIntegrationModal] = useState(false);
+  const [showGoalStudio, setShowGoalStudio] = useState(false);
   const [showAIChatbot, setShowAIChatbot] = useState(false);
+  const [pendingCoachPrompt, setPendingCoachPrompt] = useState(null);
+  const [selectedKbEntryId, setSelectedKbEntryId] = useState(null);
+  const [showDeepTelemetry, setShowDeepTelemetry] = useState(true);
+  const [systemState, setSystemState] = useState(() => getSystemState());
   const [isOffline, setIsOffline] = useState(
     typeof navigator !== "undefined" ? !navigator.onLine : false
   );
@@ -68,7 +85,7 @@ export default function Dashboard({
     };
   }, []);
 
-  // Use props data or clean empty structures (no hardcoded mock metrics)
+  // Use props data or clean empty structures (no fabricated mock metrics)
   const userData = propsUserData || {
     metrics: {
       symmetry: null,
@@ -78,31 +95,42 @@ export default function Dashboard({
     },
   };
 
-  const healthData = propsHealthData || {
-    hasData: false,
-    source: "none",
-    heartRate: { data: [], lastUpdated: null },
-    steps: { data: [], today: null, lastUpdated: null },
-    sleep: { data: [], lastUpdated: null },
-    workouts: { data: [], recent: [] },
-  };
+  const healthData = useMemo(
+    () =>
+      propsHealthData || {
+        hasData: false,
+        source: "none",
+        heartRate: { data: [], lastUpdated: null },
+        steps: { data: [], today: null, lastUpdated: null },
+        sleep: { data: [], lastUpdated: null },
+        workouts: { data: [], recent: [] },
+      },
+    [propsHealthData]
+  );
 
-  const nutritionData = propsNutritionData || {
-    source: "none",
-    calories: { consumed: 0, goal: 2200, lastUpdated: null },
-    protein: { consumed: 0, goal: 140 },
-    carbs: { consumed: 0, goal: 220 },
-    fat: { consumed: 0, goal: 73 },
-    water: { consumed: 0, goal: 3 },
-    meals: [],
-  };
+  const nutritionData = useMemo(
+    () =>
+      propsNutritionData || {
+        source: "none",
+        calories: { consumed: 0, goal: 2200, lastUpdated: null },
+        protein: { consumed: 0, goal: 140 },
+        carbs: { consumed: 0, goal: 220 },
+        fat: { consumed: 0, goal: 73 },
+        water: { consumed: 0, goal: 3 },
+        meals: [],
+      },
+    [propsNutritionData]
+  );
 
   const habitData = propsHabitData || {
     checkInsData: { lastCheckIn: null },
     streakData: { currentStreak: 0 },
   };
 
-  const userGoals = propsUserGoals || {};
+  const userGoals = useMemo(
+    () => normalizeUserGoals(propsUserGoals || {}),
+    [propsUserGoals]
+  );
 
   const connectedApps = propsConnectedApps || {
     appleHealth: false,
@@ -117,15 +145,69 @@ export default function Dashboard({
   const refreshAllData = onRefreshData || (() => {});
   const syncNutritionData = onSyncNutrition || (() => {});
 
-  const handleStartProtocolChallenge = (goalId, challenge) => {
-    if (challenge?.id) {
-      manageChallenge(challenge.id, "start", userGoals[goalId]?.type || "strength");
-    }
-    setActiveTab("habits");
+  // Derived real-time Solo-Leveling System & Physiology intelligence
+  const progression = useMemo(
+    () => computeProgressionSummary(systemState),
+    [systemState]
+  );
+
+  const readiness = useMemo(
+    () => computeReadinessAssessment(healthData, nutritionData, systemState),
+    [healthData, nutritionData, systemState]
+  );
+
+  const dailyQuests = useMemo(
+    () => generateDailyQuests(userGoals, readiness, nutritionData, systemState),
+    [userGoals, readiness, nutritionData, systemState]
+  );
+
+  const literalInsights = useMemo(
+    () => generateLiteralInsights(userGoals, readiness, nutritionData, progression),
+    [userGoals, readiness, nutritionData, progression]
+  );
+
+  const handleToggleQuest = (questId, xpReward) => {
+    const next = toggleDailyQuest(questId, xpReward);
+    setSystemState(next);
+  };
+
+  const handleRecordReadiness = (payload) => {
+    const next = recordSubjectiveReadiness(payload);
+    setSystemState(next);
+  };
+
+  const handleAdvanceRung = (goalId) => {
+    const { updatedGoals, systemState: nextSys } = advanceGoalRung(userGoals, goalId);
+    setSystemState(nextSys);
+    if (onUpdateGoals) onUpdateGoals(updatedGoals);
+  };
+
+  const handleAddGoal = (newGoal) => {
+    const nextGoals = {
+      ...userGoals,
+      [newGoal.id]: newGoal,
+    };
+    if (onUpdateGoals) onUpdateGoals(nextGoals);
+  };
+
+  const handleRemoveGoal = (goalId) => {
+    const nextGoals = { ...userGoals };
+    delete nextGoals[goalId];
+    if (onUpdateGoals) onUpdateGoals(nextGoals);
+  };
+
+  const handleAskCoach = (prompt) => {
+    setPendingCoachPrompt(prompt);
+    setShowAIChatbot(true);
+  };
+
+  const handleOpenKnowledgeNote = (entryId) => {
+    setSelectedKbEntryId(entryId);
+    setActiveTab("knowledge");
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-cyan-400 relative overflow-hidden">
+    <div className="min-h-screen bg-[#060d14] text-slate-100 relative overflow-hidden">
       <ScanlineEffect />
       {isOffline && <OfflineBanner />}
 
@@ -145,16 +227,16 @@ export default function Dashboard({
             onOpenAIChatbot={() => setShowAIChatbot(true)}
           />
 
-          <div className="mb-6 border-b border-cyan-800">
+          <div className="border-b border-slate-800/90 bg-[#08111a]/80 backdrop-blur">
             <div className="container mx-auto px-6">
-              <div className="flex space-x-6 overflow-x-auto">
+              <div className="flex space-x-5 overflow-x-auto">
                 {TABS.map((tab) => (
                   <button
                     key={tab.id}
-                    className={`py-3 px-4 whitespace-nowrap font-mono text-sm ${
+                    className={`py-3 px-2 whitespace-nowrap font-mono text-xs tracking-wider transition-colors ${
                       activeTab === tab.id
-                        ? "text-cyan-300 border-b-2 border-cyan-500"
-                        : "text-cyan-600 hover:text-cyan-400"
+                        ? "text-cyan-300 border-b-2 border-cyan-400"
+                        : "text-slate-400 hover:text-slate-200"
                     }`}
                     onClick={() => setActiveTab(tab.id)}
                   >
@@ -170,101 +252,130 @@ export default function Dashboard({
               <DashboardSkeleton />
             ) : (
               <ErrorBoundary fallbackTitle="DASHBOARD RENDER ERROR" onReset={refreshAllData}>
-                <div className="container mx-auto px-6 py-8">
-                  <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
-                    <h1 className="text-2xl font-bold text-cyber-cyan font-mono">
-                      HUMAN OPTIMIZATION MATRIX
-                    </h1>
-                    <div className="relative flex items-center">
-                      <div className="text-xs text-cyan-600 font-mono mr-4">
-                        DATA LAST SYNCED:{" "}
-                        {healthData?.heartRate?.lastUpdated || healthData?.lastSynced || "Never"}
-                        <button
-                          onClick={refreshAllData}
-                          className="ml-2 text-cyan-500 hover:text-cyan-300"
-                          title="Refresh All Data"
+                <div className="container mx-auto px-6 py-6 space-y-6">
+                  {/* Top Bar: Sync status & subtle title */}
+                  <div className="flex justify-between items-center flex-wrap gap-3">
+                    <div>
+                      <h1 className="text-xl font-semibold text-slate-100 tracking-tight">
+                        Daily Performance System
+                      </h1>
+                      <p className="text-xs text-slate-400">
+                        Autoregulated goals, physical skill progressions & literal physiological insights.
+                      </p>
+                    </div>
+                    <div className="text-xs text-slate-400 font-mono flex items-center gap-2">
+                      <span>
+                        SYNCED:{" "}
+                        {healthData?.heartRate?.lastUpdated || healthData?.lastSynced || "LOCAL MODE"}
+                      </span>
+                      <button
+                        onClick={refreshAllData}
+                        className="px-2 py-1 rounded bg-slate-900 border border-slate-800 text-cyan-400 hover:text-cyan-200 hover:border-cyan-500/50"
+                        title="Refresh All Data"
+                      >
+                        <span
+                          className={
+                            isDataFetching ? "animate-spin inline-block" : "inline-block"
+                          }
                         >
-                          <span
-                            className={
-                              isDataFetching
-                                ? "animate-spin inline-block"
-                                : "inline-block"
-                            }
-                          >
-                            ⟳
-                          </span>
-                        </button>
-                      </div>
+                          ⟳
+                        </span>
+                      </button>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-1 space-y-6">
-                      <BiometricPanel userData={userData} healthData={healthData} />
+                  {/* PRIMARY 60-SECOND WORKSPACE */}
+                  <SystemCommandCenter
+                    goals={userGoals}
+                    readiness={readiness}
+                    progression={progression}
+                    dailyQuests={dailyQuests}
+                    literalInsights={literalInsights}
+                    onToggleQuest={handleToggleQuest}
+                    onRecordReadiness={handleRecordReadiness}
+                    onAdvanceRung={handleAdvanceRung}
+                    onRemoveGoal={handleRemoveGoal}
+                    onOpenGoalStudio={() => setShowGoalStudio(true)}
+                    onAskCoach={handleAskCoach}
+                    onOpenKnowledgeNote={handleOpenKnowledgeNote}
+                  />
 
-                      {habitData && (
-                        <div className="bg-gray-900 border border-cyan-800 rounded p-4">
-                          <div className="flex justify-between items-center mb-2">
-                            <h3 className="text-sm font-mono text-cyan-300">
-                              CONSISTENCY STREAK
-                            </h3>
-                            <button
-                              onClick={handleCheckIn}
-                              className="text-xs text-cyan-600 font-mono hover:text-cyan-400"
-                              disabled={
-                                habitData.checkInsData?.lastCheckIn ===
-                                new Date().toISOString().split("T")[0]
-                              }
-                            >
-                              {habitData.checkInsData?.lastCheckIn ===
-                              new Date().toISOString().split("T")[0]
-                                ? "CHECKED IN"
-                                : "CHECK IN"}
-                            </button>
-                          </div>
-                          <div className="flex items-center justify-center">
-                            <div className="relative w-16 h-16 bg-gray-950 border-2 border-cyan-700 rounded-full flex items-center justify-center">
-                              <span className="text-xl font-bold text-cyan-300 font-mono">
-                                {habitData.streakData?.currentStreak || 0}
-                              </span>
+                  {/* SECONDARY DEEP TELEMETRY (COLLAPSIBLE SO DAILY VIEW STAYS FOCUSED) */}
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowDeepTelemetry((prev) => !prev)}
+                      className="w-full flex items-center justify-between px-4 py-2.5 bg-[#0b1520] border border-slate-800 rounded-xl text-xs font-mono text-slate-300 hover:border-slate-700 transition-colors mb-4"
+                    >
+                      <span>DEEP BIOMETRIC TELEMETRY, NUTRITION & ACTIVITY LOG</span>
+                      {showDeepTelemetry ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                    </button>
+
+                    {showDeepTelemetry && (
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-1 space-y-6">
+                          <BiometricPanel userData={userData} healthData={healthData} />
+
+                          {habitData && (
+                            <div className="bg-[#0b1520] border border-slate-800 rounded-xl p-4">
+                              <div className="flex justify-between items-center mb-2">
+                                <h3 className="text-xs font-mono text-cyan-300">
+                                  DAILY HABIT CHECK-IN
+                                </h3>
+                                <button
+                                  onClick={handleCheckIn}
+                                  className="text-xs text-cyan-400 font-mono hover:text-cyan-200"
+                                  disabled={
+                                    habitData.checkInsData?.lastCheckIn ===
+                                    new Date().toISOString().split("T")[0]
+                                  }
+                                >
+                                  {habitData.checkInsData?.lastCheckIn ===
+                                  new Date().toISOString().split("T")[0]
+                                    ? "CHECKED IN"
+                                    : "CHECK IN"}
+                                </button>
+                              </div>
+                              <div className="flex items-center">
+                                <div className="w-14 h-14 bg-slate-950 border border-cyan-700 rounded-full flex items-center justify-center">
+                                  <span className="text-lg font-bold text-cyan-300 font-mono">
+                                    {habitData.streakData?.currentStreak || 0}
+                                  </span>
+                                </div>
+                                <div className="ml-4">
+                                  <p className="text-xs text-slate-300 font-mono">
+                                    {habitData.streakData?.currentStreak
+                                      ? `${habitData.streakData.currentStreak}-DAY STREAK`
+                                      : "LOG YOUR DAILY CHECK-IN"}
+                                  </p>
+                                  <button
+                                    onClick={() => setActiveTab("habits")}
+                                    className="text-xs text-cyan-400 font-mono hover:text-cyan-300 mt-1"
+                                  >
+                                    OPEN HABIT SYSTEM →
+                                  </button>
+                                </div>
+                              </div>
                             </div>
-                            <div className="ml-4">
-                              <p className="text-xs text-cyan-600 font-mono">
-                                {habitData.streakData?.currentStreak
-                                  ? `${habitData.streakData.currentStreak}-DAY STREAK`
-                                  : "START YOUR STREAK TODAY"}
-                              </p>
-                              <button
-                                onClick={() => setActiveTab("habits")}
-                                className="text-xs text-cyan-500 font-mono hover:text-cyan-400 mt-1"
-                              >
-                                VIEW FULL SYSTEM →
-                              </button>
-                            </div>
+                          )}
+                        </div>
+
+                        <div className="lg:col-span-2 space-y-6">
+                          <EnhancementMetricsPanel healthData={healthData} />
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <EnhancedNutritionPanel
+                              nutritionData={nutritionData}
+                              onSyncNutrition={syncNutritionData}
+                              isSyncing={isDataFetching}
+                              onAddMeal={onAddMeal}
+                              onAddWater={onAddWater}
+                            />
+                            <ActivityLog workouts={healthData?.workouts?.data} />
                           </div>
                         </div>
-                      )}
-                    </div>
-
-                    <div className="lg:col-span-2 space-y-8">
-                      <EnhancementMetricsPanel healthData={healthData} />
-                      <EnhancementProtocolsPanel
-                        goals={userGoals}
-                        habitData={habitData}
-                        onStartChallenge={handleStartProtocolChallenge}
-                      />
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <EnhancedNutritionPanel
-                          nutritionData={nutritionData}
-                          onSyncNutrition={syncNutritionData}
-                          isSyncing={isDataFetching}
-                          onAddMeal={onAddMeal}
-                          onAddWater={onAddWater}
-                        />
-                        <ActivityLog workouts={healthData?.workouts?.data} />
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </ErrorBoundary>
@@ -273,8 +384,8 @@ export default function Dashboard({
           {activeTab === "workouts" && (
             <ErrorBoundary fallbackTitle="WORKOUT LOGGER ERROR">
               <div className="container mx-auto px-6 py-8">
-                <h1 className="text-2xl font-bold text-cyber-cyan font-mono mb-6">
-                  WORKOUT LOGGING & TEMPLATES
+                <h1 className="text-xl font-semibold text-slate-100 mb-6">
+                  Workout Logging & Templates
                 </h1>
                 <WorkoutLogger onWorkoutLogged={onWorkoutLogged} />
               </div>
@@ -294,30 +405,21 @@ export default function Dashboard({
           {activeTab === "nutrition" && (
             <ErrorBoundary fallbackTitle="NUTRITION MODULE ERROR">
               <div className="container mx-auto px-6 py-8">
-                <div className="flex justify-between items-center mb-8">
-                  <h1 className="text-2xl font-bold text-cyber-cyan font-mono">
-                    NUTRITION OPTIMIZATION
+                <div className="flex justify-between items-center mb-6">
+                  <h1 className="text-xl font-semibold text-slate-100">
+                    Nutrition Optimization
                   </h1>
-                  <div className="relative flex items-center">
-                    <div className="text-xs text-cyan-600 font-mono mr-4">
-                      DATA LAST SYNCED:{" "}
-                      {nutritionData?.calories?.lastUpdated || "Never"}
-                      <button
-                        onClick={syncNutritionData}
-                        className="ml-2 text-cyan-500 hover:text-cyan-300"
-                        title="Sync nutrition data"
-                      >
-                        <span
-                          className={
-                            isDataFetching
-                              ? "animate-spin inline-block"
-                              : "inline-block"
-                          }
-                        >
-                          ⟳
-                        </span>
-                      </button>
-                    </div>
+                  <div className="text-xs text-slate-400 font-mono">
+                    DATA LAST SYNCED: {nutritionData?.calories?.lastUpdated || "Never"}
+                    <button
+                      onClick={syncNutritionData}
+                      className="ml-2 text-cyan-400 hover:text-cyan-200"
+                      title="Sync nutrition data"
+                    >
+                      <span className={isDataFetching ? "animate-spin inline-block" : "inline-block"}>
+                        ⟳
+                      </span>
+                    </button>
                   </div>
                 </div>
 
@@ -335,8 +437,8 @@ export default function Dashboard({
           {activeTab === "sleep" && (
             <ErrorBoundary fallbackTitle="SLEEP ANALYSIS ERROR">
               <div className="container mx-auto px-6 py-8">
-                <h1 className="text-2xl font-bold text-cyber-cyan font-mono mb-8">
-                  SLEEP & RECOVERY ANALYSIS
+                <h1 className="text-xl font-semibold text-slate-100 mb-6">
+                  Sleep & Recovery Analysis
                 </h1>
                 <SleepAnalysis sleepData={healthData?.sleep} />
               </div>
@@ -347,7 +449,8 @@ export default function Dashboard({
             <ErrorBoundary fallbackTitle="KNOWLEDGE BASE ERROR">
               <div className="container mx-auto px-6 py-8">
                 <KnowledgeBaseBrowser
-                  userData={{ healthData, nutritionData, habitData }}
+                  userData={{ healthData, nutritionData, habitData, userGoals }}
+                  initialEntryId={selectedKbEntryId}
                   onNavigateToWorkouts={() => setActiveTab("workouts")}
                 />
               </div>
@@ -367,9 +470,24 @@ export default function Dashboard({
             onToggleConnection={toggleAppConnection}
           />
 
+          <GoalStudioModal
+            isOpen={showGoalStudio}
+            onClose={() => setShowGoalStudio(false)}
+            onAddGoal={handleAddGoal}
+          />
+
           <AIChatbot
             isOpen={showAIChatbot}
             onClose={() => setShowAIChatbot(false)}
+            healthData={healthData}
+            nutritionData={nutritionData}
+            habitData={habitData}
+            userGoals={userGoals}
+            readiness={readiness}
+            progression={progression}
+            systemState={systemState}
+            pendingPrompt={pendingCoachPrompt}
+            onConsumePendingPrompt={() => setPendingCoachPrompt(null)}
           />
         </>
       )}

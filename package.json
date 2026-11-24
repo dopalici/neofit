@@ -29,6 +29,7 @@
     "build": "react-app-rewired build",
     "build:ios": "node scripts/build-ios-lite.mjs",
     "ios:sync": "node scripts/build-ios-lite.mjs && npx cap sync ios",
+    "ios:open": "npx cap open ios",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject",
     "kb:sync": "node scripts/sync-fitlib-vault.mjs"
@@ -52,6 +53,7 @@
     ]
   },
   "devDependencies": {
+    "@capacitor/cli": "^5.7.8",
     "crypto-browserify": "^3.12.1",
     "path-browserify": "^1.0.1",
     "react-app-rewired": "^2.2.1",

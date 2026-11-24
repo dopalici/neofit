@@ -34,7 +34,7 @@ export const fetchHealthData = async (forceRefresh = false) => {
           appleHealthService.fetchWorkouts("month", forceRefresh),
           appleHealthService.fetchNutrition("day", forceRefresh),
           appleHealthService.fetchHealthData("weight", "month", forceRefresh),
-          appleHealthService.fetchHealthData("vo2Max", "month", forceRefresh),
+          appleHealthService.fetchHealthData("vo2max", "year", forceRefresh),
           appleHealthService.fetchHealthData("heartRateVariability", "week", forceRefresh),
           appleHealthService.fetchHealthData("oxygenSaturation", "week", forceRefresh),
           appleHealthService.fetchHealthData("calories", "week", forceRefresh),

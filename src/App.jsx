@@ -243,6 +243,10 @@ function App() {
             path="/"
             element={isNativeMobile ? dashboardElement : <LandingPage />}
           />
+          <Route
+            path="*"
+            element={isNativeMobile ? dashboardElement : <LandingPage />}
+          />
         </Routes>
       </Router>
     </ErrorBoundary>

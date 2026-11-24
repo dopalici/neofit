@@ -46,7 +46,7 @@ public class HealthKitPlugin: CAPPlugin {
             let value = sample.quantity.doubleValue(for: HKUnit.gramUnit(with: .kilo))
             return value >= 20 && value <= 300 // Reasonable weight range in kg
             
-        case "vo2max":
+        case "vo2max", "vo2Max":
             let value = sample.quantity.doubleValue(for: HKUnit.literUnit(with: .milli).unitDivided(by: HKUnit.gramUnit(with: .kilo).unitMultiplied(by: HKUnit.minute())))
             return value >= 10 && value <= 100 // Reasonable VO2max range
             
@@ -209,7 +209,7 @@ public class HealthKitPlugin: CAPPlugin {
             quantityType = HKQuantityType.quantityType(forIdentifier: .stepCount)
         case "weight":
             quantityType = HKQuantityType.quantityType(forIdentifier: .bodyMass)
-        case "vo2max":
+        case "vo2max", "vo2Max":
             quantityType = HKQuantityType.quantityType(forIdentifier: .vo2Max)
         case "calories":
             quantityType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
@@ -371,7 +371,7 @@ public class HealthKitPlugin: CAPPlugin {
                 case "weight":
                     unit = HKUnit.gramUnit(with: .kilo)
                     value = sample.quantity.doubleValue(for: unit)
-                case "vo2max":
+                case "vo2max", "vo2Max":
                     unit = HKUnit.literUnit(with: .milli).unitDivided(by: HKUnit.gramUnit(with: .kilo).unitMultiplied(by: HKUnit.minute()))
                     value = sample.quantity.doubleValue(for: unit)
                 case "calories":
@@ -678,10 +678,19 @@ public class HealthKitPlugin: CAPPlugin {
             var sleepSamplesByNight: [String: [HKCategorySample]] = [:]
             
             for sample in samples {
-                let isAsleep = sample.value == HKCategoryValueSleepAnalysis.asleep.rawValue ||
-                               sample.value == HKCategoryValueSleepAnalysis.inBed.rawValue
-                
-                if isAsleep {
+                var isRelevantSleepSample = sample.value == HKCategoryValueSleepAnalysis.asleep.rawValue ||
+                                            sample.value == HKCategoryValueSleepAnalysis.inBed.rawValue
+
+                if #available(iOS 16.0, *) {
+                    isRelevantSleepSample = isRelevantSleepSample ||
+                        sample.value == HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue ||
+                        sample.value == HKCategoryValueSleepAnalysis.asleepCore.rawValue ||
+                        sample.value == HKCategoryValueSleepAnalysis.asleepDeep.rawValue ||
+                        sample.value == HKCategoryValueSleepAnalysis.asleepREM.rawValue ||
+                        sample.value == HKCategoryValueSleepAnalysis.awake.rawValue
+                }
+
+                if isRelevantSleepSample {
                     // Use the end date to determine the night (since sleep often spans midnight)
                     let nightDateComponents = calendar.dateComponents([.year, .month, .day], from: sample.endDate)
                     let nightKey = "\(nightDateComponents.year!)-\(nightDateComponents.month!)-\(nightDateComponents.day!)"
@@ -733,7 +742,7 @@ public class HealthKitPlugin: CAPPlugin {
                             totalSleepMinutes += sampleDuration
                         } else if sample.value == HKCategoryValueSleepAnalysis.awake.rawValue {
                             sleepStages["awake"]! += sampleDuration
-                        } else if sample.value == HKCategoryValueSleepAnalysis.asleep.rawValue {
+                        } else if sample.value == HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue {
                             totalSleepMinutes += sampleDuration
                         }
                     } else {
@@ -808,7 +817,7 @@ public class HealthKitPlugin: CAPPlugin {
             sampleType = HKQuantityType.quantityType(forIdentifier: .stepCount)
         case "weight":
             sampleType = HKQuantityType.quantityType(forIdentifier: .bodyMass)
-        case "vo2max":
+        case "vo2max", "vo2Max":
             sampleType = HKQuantityType.quantityType(forIdentifier: .vo2Max)
         case "sleep":
             sampleType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)

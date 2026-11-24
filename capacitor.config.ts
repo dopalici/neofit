@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: "build",
   server: {
     androidScheme: "https",
-    iosScheme: "https",
+    iosScheme: "capacitor",
   },
   ios: {
     contentInset: "never",

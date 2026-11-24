@@ -197,7 +197,7 @@ class AppleHealthService {
     const [heartRate, hrv, vo2Max, bloodOxygen, respiratoryRate] = await Promise.all([
       this.fetchHealthData('heartRate', 'day'),
       this.fetchHealthData('heartRateVariability', 'week'),
-      this.fetchHealthData('vo2Max', 'month'),
+      this.fetchHealthData('vo2max', 'month'),
       this.fetchHealthData('oxygenSaturation', 'day'),
       this.fetchHealthData('respiratoryRate', 'day')
     ]);
@@ -269,7 +269,8 @@ class AppleHealthService {
     // Use the dedicated sleep query method
     let sleepData = [];
     try {
-      const result = await HealthKit.querySleepData({ period: 'month' });
+      const hk = await getHealthKit();
+      const result = await hk.querySleepData({ period: 'month' });
       sleepData = result.data || [];
     } catch (error) {
       console.error('Error fetching sleep data:', error);
@@ -313,7 +314,8 @@ class AppleHealthService {
    * WORKOUT SUMMARY
    */
   async getWorkoutSummary() {
-    const workouts = await HealthKit.queryWorkouts({ period: 'month' });
+    const hk = await getHealthKit();
+    const workouts = await hk.queryWorkouts({ period: 'month' });
     const processed = this.processWorkoutData(workouts.data);
 
     return {
@@ -1643,7 +1645,8 @@ class AppleHealthService {
     // Sleep data needs special handling
     let sleep = null;
     try {
-      const sleepResult = await HealthKit?.querySleepData?.({ period: 'week' });
+      const hk = await getHealthKit();
+      const sleepResult = await hk?.querySleepData?.({ period: 'week' });
       if (sleepResult?.data?.length > 0) {
         sleep = sleepResult.data[0].value;
       }
@@ -1805,9 +1808,11 @@ export const fetchWorkouts = (period, forceRefresh) =>
 export const fetchNutrition = (period, forceRefresh) =>
   appleHealthService.fetchNutrition(period, forceRefresh);
 export const clearHealthDataCache = () => appleHealthService.clearCache();
-export const startObservingHealthData = (dataType) =>
-  HealthKit?.startObservingHealthData
-    ? HealthKit.startObservingHealthData({ dataType })
-    : Promise.resolve();
+export const startObservingHealthData = async (dataType) => {
+  const hk = await getHealthKit();
+  return hk?.startObservingHealthData
+    ? hk.startObservingHealthData({ dataType })
+    : undefined;
+};
 
 export default appleHealthService;

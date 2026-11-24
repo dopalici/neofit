@@ -181,6 +181,29 @@ function trimContentForRuntime(content = "", maxChars = 3600) {
   return `${cleaned.slice(0, maxChars)}\n\n[Truncated for mobile bundle — full reference archived in FitLib Vault]`;
 }
 
+function isNonScienceArtifact(id = "", title = "", content = "") {
+  const lowerTitle = title.toLowerCase();
+  const lowerContent = content.toLowerCase();
+  if (content.trim().length < 300) return true;
+  if (
+    lowerTitle.includes("completion report") ||
+    lowerTitle.includes("replacement report") ||
+    lowerTitle.includes("broken-wikilink") ||
+    lowerTitle.includes("meta-information") ||
+    lowerTitle.includes("zettelkasten for obsidian")
+  ) {
+    return true;
+  }
+  if (
+    lowerContent.includes("this note appears to be a placeholder template") ||
+    lowerContent.includes("not a recognized training methodology") ||
+    lowerContent.includes("original citations appear to be placeholder")
+  ) {
+    return true;
+  }
+  return false;
+}
+
 async function main() {
   const args = parseArgs(process.argv);
   let rawExport;
@@ -201,15 +224,22 @@ async function main() {
   const entries = {};
   const categoryCounts = {};
   let totalCitations = 0;
+  let excludedArtifacts = 0;
 
   for (const node of nodes) {
     const title = cleanTitle(node.title || node.id);
     if (!title) continue;
 
     const id = normalizeId(node.id, title);
+    const rawContent = String(node.content || "");
+    if (isNonScienceArtifact(id, title, rawContent)) {
+      excludedArtifacts += 1;
+      continue;
+    }
+
     const category = inferCategory(id, title, node.series);
-    const summary = extractQuickTakeaway(node.content || "");
-    const keyPoints = extractKeyPoints(node.content || "");
+    const summary = extractQuickTakeaway(rawContent);
+    const keyPoints = extractKeyPoints(rawContent);
     const citations = normalizeCitations(node.citations);
     totalCitations += citations.length;
 
@@ -226,7 +256,7 @@ async function main() {
       citations,
       summary,
       keyPoints,
-      content: trimContentForRuntime(node.content || ""),
+      content: trimContentForRuntime(rawContent),
       links: Array.isArray(node.links) ? [...new Set(node.links)].slice(0, 20) : [],
       tags: Array.isArray(node.tags) ? [...new Set(node.tags)].slice(0, 15) : [],
     };
@@ -237,6 +267,7 @@ async function main() {
     vaultExportedAt: rawExport?.metadata?.exported_at || null,
     syncedAt: new Date().toISOString(),
     totalEntries: Object.keys(entries).length,
+    excludedArtifacts,
     totalCitations,
     brokenWikilinks: rawExport?.metadata?.broken_wikilinks ?? 0,
     categories: categoryCounts,
@@ -247,7 +278,7 @@ async function main() {
 
   const kbSizeKb = Math.round(fs.statSync(OUTPUT_KB_PATH).size / 1024);
   console.log(
-    `Synced ${meta.totalEntries} verified notes (${meta.totalCitations} citations, ${meta.brokenWikilinks} broken links) -> public/knowledge-base.json (${kbSizeKb} KB)`
+    `Synced ${meta.totalEntries} clean notes (excluded ${excludedArtifacts} stubs/reports/placeholders; ${meta.totalCitations} citations) -> public/knowledge-base.json (${kbSizeKb} KB)`
   );
 }
 

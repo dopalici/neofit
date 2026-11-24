@@ -17,6 +17,10 @@ import {
   computeReadinessAssessment,
   getSystemState,
 } from './goalEngineService';
+import {
+  analyzeAerobicGoalProgress,
+  buildAerobicCoachBrief,
+} from './aerobicGoalService';
 import { getFromStorage, saveToStorage } from '../utils/storageUtils';
 
 const AI_CONFIG_KEY = 'ai-advisor-config';
@@ -539,6 +543,14 @@ export function buildSystemPrompt(userData, userGoals, relevantEntries = []) {
     readiness,
     progression,
   });
+
+  const aerobicAnalysis =
+    userData?.aerobicAnalysis ||
+    (userData?.healthData ? analyzeAerobicGoalProgress(userData.healthData) : null);
+  const aerobicBrief = aerobicAnalysis ? buildAerobicCoachBrief(aerobicAnalysis) : null;
+  if (aerobicBrief) {
+    telemetryBrief.aerobicCardioGoal = aerobicBrief;
+  }
 
   const kbContext =
     relevantEntries.length > 0

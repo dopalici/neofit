@@ -1,11 +1,24 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Activity,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  Compass,
+  Dumbbell,
+  Flame,
+  HeartPulse,
+  Moon,
+  RefreshCw,
+  Utensils,
+} from "lucide-react";
 import ScanlineEffect from "../ui/ScanlineEffect";
 import ErrorBoundary from "../ui/ErrorBoundary";
 import { DashboardSkeleton, OfflineBanner } from "../ui/LoadingSkeleton";
 import OnboardingFlow, { ONBOARDING_STORAGE_KEY } from "../onboarding/OnboardingFlow";
 import AIChatbot from "./AIChatbot";
 import ActivityLog from "./ActivityLog";
+import AerobicGoalAnalyzer from "./AerobicGoalAnalyzer";
 import BiometricPanel from "./BiometricPanel";
 import EnhancedNutritionPanel from "./EnhancedNutritionPanel";
 import EnhancementMetricsPanel from "./EnhancementMetricsPanel";
@@ -19,6 +32,11 @@ import SleepAnalysis from "./SleepAnalysis";
 import SystemCommandCenter from "./SystemCommandCenter";
 import WorkoutLogger from "./WorkoutLogger";
 import {
+  analyzeAerobicGoalProgress,
+  getSavedAerobicGoalId,
+  saveAerobicGoalId,
+} from "../../services/aerobicGoalService";
+import {
   advanceGoalRung,
   computeProgressionSummary,
   computeReadinessAssessment,
@@ -29,17 +47,31 @@ import {
   recordSubjectiveReadiness,
   toggleDailyQuest,
 } from "../../services/goalEngineService";
-import { getFromStorage } from "../../utils/storageUtils";
+import { getFromStorage, saveToStorage } from "../../utils/storageUtils";
+import {
+  applyVisualTheme,
+  cycleVisualTheme,
+  getSavedTheme,
+} from "../../utils/themeUtils";
+
+const DEEP_TELEMETRY_PREF_KEY = "dashboard-deep-telemetry-open";
 
 const TABS = [
-  { id: "main", label: "COMMAND CENTER" },
-  { id: "workouts", label: "WORKOUTS" },
-  { id: "habits", label: "HABIT SYSTEM" },
-  { id: "nutrition", label: "NUTRITION" },
-  { id: "sleep", label: "SLEEP" },
-  { id: "knowledge", label: "FITLIB VAULT" },
-  { id: "health", label: "HEALTH DATA" },
+  { id: "main", label: "Today", icon: Compass, mobileDock: true },
+  { id: "workouts", label: "Workouts", icon: Dumbbell, mobileDock: true },
+  { id: "nutrition", label: "Nutrition", icon: Utensils, mobileDock: true },
+  { id: "habits", label: "Habits", icon: Flame, mobileDock: false },
+  { id: "sleep", label: "Sleep", icon: Moon, mobileDock: false },
+  { id: "knowledge", label: "FitLib", icon: BookOpen, mobileDock: true },
+  { id: "health", label: "Health Data", icon: HeartPulse, mobileDock: true },
 ];
+
+function getTimeOfDayGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
 
 export default function Dashboard({
   userData: propsUserData,
@@ -68,11 +100,20 @@ export default function Dashboard({
   const [showAIChatbot, setShowAIChatbot] = useState(false);
   const [pendingCoachPrompt, setPendingCoachPrompt] = useState(null);
   const [selectedKbEntryId, setSelectedKbEntryId] = useState(null);
-  const [showDeepTelemetry, setShowDeepTelemetry] = useState(true);
+  const [visualTheme, setVisualTheme] = useState(() => getSavedTheme());
+  const [showDeepTelemetry, setShowDeepTelemetry] = useState(() =>
+    Boolean(getFromStorage(DEEP_TELEMETRY_PREF_KEY, false))
+  );
   const [systemState, setSystemState] = useState(() => getSystemState());
+  const [aerobicGoalId, setAerobicGoalId] = useState(() => getSavedAerobicGoalId());
   const [isOffline, setIsOffline] = useState(
     typeof navigator !== "undefined" ? !navigator.onLine : false
   );
+
+  // Sync visual comfort theme onto <html>
+  useEffect(() => {
+    applyVisualTheme(visualTheme);
+  }, [visualTheme]);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -85,7 +126,6 @@ export default function Dashboard({
     };
   }, []);
 
-  // Use props data or clean empty structures (no fabricated mock metrics)
   const userData = propsUserData || {
     metrics: {
       symmetry: null,
@@ -145,7 +185,6 @@ export default function Dashboard({
   const refreshAllData = onRefreshData || (() => {});
   const syncNutritionData = onSyncNutrition || (() => {});
 
-  // Derived real-time Solo-Leveling System & Physiology intelligence
   const progression = useMemo(
     () => computeProgressionSummary(systemState),
     [systemState]
@@ -165,6 +204,34 @@ export default function Dashboard({
     () => generateLiteralInsights(userGoals, readiness, nutritionData, progression),
     [userGoals, readiness, nutritionData, progression]
   );
+
+  const aerobicAnalysis = useMemo(
+    () => analyzeAerobicGoalProgress(healthData, aerobicGoalId),
+    [healthData, aerobicGoalId]
+  );
+
+  const handleSelectAerobicGoal = (nextId) => {
+    const saved = saveAerobicGoalId(nextId);
+    setAerobicGoalId(saved);
+  };
+
+  const handleCycleTheme = () => {
+    const next = cycleVisualTheme(visualTheme);
+    setVisualTheme(next);
+  };
+
+  const handleSelectTheme = (nextTheme) => {
+    const applied = applyVisualTheme(nextTheme);
+    setVisualTheme(applied);
+  };
+
+  const handleToggleDeepTelemetry = () => {
+    setShowDeepTelemetry((prev) => {
+      const next = !prev;
+      saveToStorage(DEEP_TELEMETRY_PREF_KEY, next);
+      return next;
+    });
+  };
 
   const handleToggleQuest = (questId, xpReward) => {
     const next = toggleDailyQuest(questId, xpReward);
@@ -206,8 +273,14 @@ export default function Dashboard({
     setActiveTab("knowledge");
   };
 
+  const greeting = getTimeOfDayGreeting();
+  const completedToday = dailyQuests.filter((q) => q.completed).length;
+
   return (
-    <div className="min-h-screen bg-[#060d14] text-slate-100 relative overflow-hidden">
+    <div
+      className="nv-app-shell min-h-screen relative overflow-x-hidden pb-20 md:pb-8"
+      style={{ backgroundColor: "var(--nv-bg)", color: "var(--nv-text)" }}
+    >
       <ScanlineEffect />
       {isOffline && <OfflineBanner />}
 
@@ -220,66 +293,85 @@ export default function Dashboard({
           onUpdateGoals={onUpdateGoals}
         />
       ) : (
-        <>
+        <div className="relative z-10">
           <Header
             isConnecting={isDataFetching}
+            theme={visualTheme}
+            onCycleTheme={handleCycleTheme}
             onOpenSettings={() => setShowIntegrationModal(true)}
             onOpenAIChatbot={() => setShowAIChatbot(true)}
           />
 
-          <div className="border-b border-slate-800/90 bg-[#08111a]/80 backdrop-blur">
-            <div className="container mx-auto px-6">
-              <div className="flex space-x-5 overflow-x-auto">
-                {TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    className={`py-3 px-2 whitespace-nowrap font-mono text-xs tracking-wider transition-colors ${
-                      activeTab === tab.id
-                        ? "text-cyan-300 border-b-2 border-cyan-400"
-                        : "text-slate-400 hover:text-slate-200"
-                    }`}
-                    onClick={() => setActiveTab(tab.id)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+          {/* Clean Icon + Label Navigation Strip */}
+          <nav
+            aria-label="Primary Navigation"
+            className="border-b backdrop-blur-md"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--nv-bg-elevated) 78%, transparent)",
+              borderColor: "var(--nv-border)",
+            }}
+          >
+            <div className="container mx-auto max-w-7xl px-4 sm:px-6">
+              <div className="flex space-x-1 sm:space-x-2 overflow-x-auto py-1.5">
+                {TABS.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      className={`py-2 px-3 rounded-lg whitespace-nowrap text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                        isActive
+                          ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/35"
+                          : "text-slate-400 hover:text-slate-100 border border-transparent"
+                      }`}
+                      onClick={() => setActiveTab(tab.id)}
+                    >
+                      <Icon size={14} />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          </div>
+          </nav>
 
           {activeTab === "main" &&
             (isDataFetching && !propsHealthData ? (
               <DashboardSkeleton />
             ) : (
               <ErrorBoundary fallbackTitle="DASHBOARD RENDER ERROR" onReset={refreshAllData}>
-                <div className="container mx-auto px-6 py-6 space-y-6">
-                  {/* Top Bar: Sync status & subtle title */}
-                  <div className="flex justify-between items-center flex-wrap gap-3">
+                <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-6 space-y-6">
+                  {/* Friendly 60-Second Daily Welcome Strip */}
+                  <div className="flex justify-between items-start sm:items-center flex-wrap gap-3">
                     <div>
-                      <h1 className="text-xl font-semibold text-slate-100 tracking-tight">
-                        Daily Performance System
+                      <h1 className="text-xl sm:text-2xl font-bold text-slate-100 tracking-tight">
+                        {greeting} — Today’s Brief
                       </h1>
-                      <p className="text-xs text-slate-400">
-                        Autoregulated goals, physical skill progressions & literal physiological insights.
+                      <p className="text-sm text-slate-400 mt-0.5">
+                        {completedToday === dailyQuests.length && dailyQuests.length > 0
+                          ? "All daily quests complete. Recovery and consistency locked in."
+                          : `${completedToday}/${dailyQuests.length} daily quests done · Focus on your highest-leverage next step.`}
                       </p>
                     </div>
                     <div className="text-xs text-slate-400 font-mono flex items-center gap-2">
                       <span>
-                        SYNCED:{" "}
-                        {healthData?.heartRate?.lastUpdated || healthData?.lastSynced || "LOCAL MODE"}
+                        SYNC:{" "}
+                        {healthData?.heartRate?.lastUpdated ||
+                          healthData?.lastSynced ||
+                          "LOCAL MODE"}
                       </span>
                       <button
+                        type="button"
                         onClick={refreshAllData}
-                        className="px-2 py-1 rounded bg-slate-900 border border-slate-800 text-cyan-400 hover:text-cyan-200 hover:border-cyan-500/50"
+                        className="p-2 rounded-lg nv-surface-subtle text-cyan-400 hover:text-cyan-200 transition-colors"
                         title="Refresh All Data"
+                        aria-label="Refresh health data"
                       >
-                        <span
-                          className={
-                            isDataFetching ? "animate-spin inline-block" : "inline-block"
-                          }
-                        >
-                          ⟳
-                        </span>
+                        <RefreshCw
+                          size={14}
+                          className={isDataFetching ? "animate-spin" : ""}
+                        />
                       </button>
                     </div>
                   </div>
@@ -300,15 +392,42 @@ export default function Dashboard({
                     onOpenKnowledgeNote={handleOpenKnowledgeNote}
                   />
 
-                  {/* SECONDARY DEEP TELEMETRY (COLLAPSIBLE SO DAILY VIEW STAYS FOCUSED) */}
-                  <div className="pt-2">
+                  {/* APPLE HEALTH WORKOUT -> AEROBIC / CARDIO GOAL ENGINE */}
+                  <AerobicGoalAnalyzer
+                    analysis={aerobicAnalysis}
+                    selectedGoalId={aerobicGoalId}
+                    onSelectGoal={handleSelectAerobicGoal}
+                    onOpenKnowledgeNote={handleOpenKnowledgeNote}
+                    onAskCoach={handleAskCoach}
+                    onOpenHealthImport={() => setActiveTab("health")}
+                    onOpenWorkouts={() => setActiveTab("workouts")}
+                  />
+
+                  {/* SECONDARY DEEP TELEMETRY (COLLAPSED BY DEFAULT FOR CALM 60-SECOND FOCUS) */}
+                  <div className="pt-1">
                     <button
                       type="button"
-                      onClick={() => setShowDeepTelemetry((prev) => !prev)}
-                      className="w-full flex items-center justify-between px-4 py-2.5 bg-[#0b1520] border border-slate-800 rounded-xl text-xs font-mono text-slate-300 hover:border-slate-700 transition-colors mb-4"
+                      onClick={handleToggleDeepTelemetry}
+                      className="system-window w-full flex items-center justify-between px-5 py-3.5 rounded-2xl text-left hover:border-cyan-500/40 transition-colors mb-4"
                     >
-                      <span>DEEP BIOMETRIC TELEMETRY, NUTRITION & ACTIVITY LOG</span>
-                      {showDeepTelemetry ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                      <div className="flex items-center gap-3">
+                        <Activity size={16} className="text-cyan-400 shrink-0" />
+                        <div>
+                          <span className="text-xs font-mono uppercase tracking-wider text-slate-200 block">
+                            Deep Biometric Telemetry & 3D Avatar
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {showDeepTelemetry
+                              ? "Hide 3D model, detailed metrics, nutrition & activity log"
+                              : "Expand when you want deeper 3D biometrics, macros & full workout log"}
+                          </span>
+                        </div>
+                      </div>
+                      {showDeepTelemetry ? (
+                        <ChevronUp size={16} className="text-slate-400 shrink-0" />
+                      ) : (
+                        <ChevronDown size={16} className="text-slate-400 shrink-0" />
+                      )}
                     </button>
 
                     {showDeepTelemetry && (
@@ -317,12 +436,13 @@ export default function Dashboard({
                           <BiometricPanel userData={userData} healthData={healthData} />
 
                           {habitData && (
-                            <div className="bg-[#0b1520] border border-slate-800 rounded-xl p-4">
-                              <div className="flex justify-between items-center mb-2">
-                                <h3 className="text-xs font-mono text-cyan-300">
-                                  DAILY HABIT CHECK-IN
+                            <div className="system-window rounded-2xl p-5">
+                              <div className="flex justify-between items-center mb-3">
+                                <h3 className="text-xs font-mono uppercase tracking-wider text-cyan-300">
+                                  Daily Habit Check-In
                                 </h3>
                                 <button
+                                  type="button"
                                   onClick={handleCheckIn}
                                   className="text-xs text-cyan-400 font-mono hover:text-cyan-200"
                                   disabled={
@@ -337,7 +457,7 @@ export default function Dashboard({
                                 </button>
                               </div>
                               <div className="flex items-center">
-                                <div className="w-14 h-14 bg-slate-950 border border-cyan-700 rounded-full flex items-center justify-center">
+                                <div className="w-14 h-14 nv-surface-subtle border-cyan-500/40 rounded-full flex items-center justify-center">
                                   <span className="text-lg font-bold text-cyan-300 font-mono">
                                     {habitData.streakData?.currentStreak || 0}
                                   </span>
@@ -349,6 +469,7 @@ export default function Dashboard({
                                       : "LOG YOUR DAILY CHECK-IN"}
                                   </p>
                                   <button
+                                    type="button"
                                     onClick={() => setActiveTab("habits")}
                                     className="text-xs text-cyan-400 font-mono hover:text-cyan-300 mt-1"
                                   >
@@ -383,9 +504,9 @@ export default function Dashboard({
 
           {activeTab === "workouts" && (
             <ErrorBoundary fallbackTitle="WORKOUT LOGGER ERROR">
-              <div className="container mx-auto px-6 py-8">
-                <h1 className="text-xl font-semibold text-slate-100 mb-6">
-                  Workout Logging & Templates
+              <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
+                <h1 className="text-xl font-bold text-slate-100 mb-6">
+                  Workout Logging & Cardio Templates
                 </h1>
                 <WorkoutLogger onWorkoutLogged={onWorkoutLogged} />
               </div>
@@ -404,19 +525,22 @@ export default function Dashboard({
 
           {activeTab === "nutrition" && (
             <ErrorBoundary fallbackTitle="NUTRITION MODULE ERROR">
-              <div className="container mx-auto px-6 py-8">
+              <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
                 <div className="flex justify-between items-center mb-6">
-                  <h1 className="text-xl font-semibold text-slate-100">
+                  <h1 className="text-xl font-bold text-slate-100">
                     Nutrition Optimization
                   </h1>
                   <div className="text-xs text-slate-400 font-mono">
                     DATA LAST SYNCED: {nutritionData?.calories?.lastUpdated || "Never"}
                     <button
+                      type="button"
                       onClick={syncNutritionData}
                       className="ml-2 text-cyan-400 hover:text-cyan-200"
                       title="Sync nutrition data"
                     >
-                      <span className={isDataFetching ? "animate-spin inline-block" : "inline-block"}>
+                      <span
+                        className={isDataFetching ? "animate-spin inline-block" : "inline-block"}
+                      >
                         ⟳
                       </span>
                     </button>
@@ -436,8 +560,8 @@ export default function Dashboard({
 
           {activeTab === "sleep" && (
             <ErrorBoundary fallbackTitle="SLEEP ANALYSIS ERROR">
-              <div className="container mx-auto px-6 py-8">
-                <h1 className="text-xl font-semibold text-slate-100 mb-6">
+              <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
+                <h1 className="text-xl font-bold text-slate-100 mb-6">
                   Sleep & Recovery Analysis
                 </h1>
                 <SleepAnalysis sleepData={healthData?.sleep} />
@@ -447,7 +571,7 @@ export default function Dashboard({
 
           {activeTab === "knowledge" && (
             <ErrorBoundary fallbackTitle="KNOWLEDGE BASE ERROR">
-              <div className="container mx-auto px-6 py-8">
+              <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-8">
                 <KnowledgeBaseBrowser
                   userData={{ healthData, nutritionData, habitData, userGoals }}
                   initialEntryId={selectedKbEntryId}
@@ -463,11 +587,43 @@ export default function Dashboard({
             </ErrorBoundary>
           )}
 
+          {/* Responsive Mobile Bottom Navigation Dock (Apple HIG 44px+ touch targets) */}
+          <nav
+            aria-label="Mobile Navigation"
+            className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t backdrop-blur-lg px-2 py-1.5"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--nv-bg-elevated) 92%, transparent)",
+              borderColor: "var(--nv-border)",
+            }}
+          >
+            <div className="grid grid-cols-5 gap-1">
+              {TABS.filter((t) => t.mobileDock).map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex flex-col items-center justify-center py-1.5 rounded-lg text-[10px] font-medium transition-colors ${
+                      isActive ? "text-cyan-300 bg-cyan-500/10" : "text-slate-400"
+                    }`}
+                  >
+                    <Icon size={17} className="mb-0.5" />
+                    <span className="truncate">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+
           <IntegrationModal
             isOpen={showIntegrationModal}
             onClose={() => setShowIntegrationModal(false)}
             connectedApps={connectedApps}
             onToggleConnection={toggleAppConnection}
+            theme={visualTheme}
+            onSelectTheme={handleSelectTheme}
           />
 
           <GoalStudioModal
@@ -486,10 +642,11 @@ export default function Dashboard({
             readiness={readiness}
             progression={progression}
             systemState={systemState}
+            aerobicAnalysis={aerobicAnalysis}
             pendingPrompt={pendingCoachPrompt}
             onConsumePendingPrompt={() => setPendingCoachPrompt(null)}
           />
-        </>
+        </div>
       )}
     </div>
   );

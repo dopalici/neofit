@@ -26,6 +26,8 @@ export default function WorkoutLogger({ onWorkoutLogged }) {
   const [workoutName, setWorkoutName] = useState("Strength Session");
   const [workoutType, setWorkoutType] = useState("strength_training");
   const [duration, setDuration] = useState(45);
+  const [distanceKm, setDistanceKm] = useState("");
+  const [averageHeartRate, setAverageHeartRate] = useState("");
   const [exercises, setExercises] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("All");
@@ -56,6 +58,8 @@ export default function WorkoutLogger({ onWorkoutLogged }) {
     setWorkoutName(template.name);
     setWorkoutType(template.type);
     setDuration(template.estimatedMinutes);
+    setDistanceKm(template.type === "running" ? "5.0" : "");
+    setAverageHeartRate("");
     setExercises(buildExerciseEntriesFromTemplate(template.id));
     setSaveMessage("");
   };
@@ -112,12 +116,18 @@ export default function WorkoutLogger({ onWorkoutLogged }) {
       name: workoutName,
       type: workoutType,
       duration,
+      distance: distanceKm,
+      averageHeartRate,
       exercises,
     });
+    const distPart = saved.distance ? ` · ${saved.distance} km` : "";
+    const hrPart = saved.averageHeartRate ? ` · ${saved.averageHeartRate} bpm` : "";
     setSaveMessage(
-      `Saved "${saved.name}" (${saved.duration} min · ${saved.calories} kcal · ${saved.volume.toLocaleString()} kg vol)`
+      `Saved "${saved.name}" (${saved.duration} min${distPart}${hrPart} · ${saved.calories} kcal)`
     );
     setExercises([]);
+    setDistanceKm("");
+    setAverageHeartRate("");
     if (onWorkoutLogged) {
       onWorkoutLogged(saved);
     }
@@ -211,13 +221,13 @@ export default function WorkoutLogger({ onWorkoutLogged }) {
         {/* Active Workout Sheet */}
         <div className="lg:col-span-2 bg-gray-900 border border-cyan-800 rounded-lg p-5">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <div className="flex items-center space-x-3 flex-1">
+            <div className="flex flex-wrap items-center gap-2 flex-1">
               <input
                 type="text"
                 value={workoutName}
                 onChange={(e) => setWorkoutName(e.target.value)}
                 aria-label="Workout Name"
-                className="bg-gray-950 border border-cyan-800 rounded px-3 py-1.5 text-sm font-mono text-cyan-200 flex-1"
+                className="bg-gray-950 border border-cyan-800 rounded px-3 py-1.5 text-sm font-mono text-cyan-200 flex-1 min-w-[160px]"
               />
               <input
                 type="number"
@@ -226,9 +236,31 @@ export default function WorkoutLogger({ onWorkoutLogged }) {
                 value={duration}
                 onChange={(e) => setDuration(parseInt(e.target.value, 10) || 0)}
                 aria-label="Duration in minutes"
-                className="w-20 bg-gray-950 border border-cyan-800 rounded px-2 py-1.5 text-sm font-mono text-cyan-200"
+                className="w-16 bg-gray-950 border border-cyan-800 rounded px-2 py-1.5 text-sm font-mono text-cyan-200"
               />
               <span className="text-xs font-mono text-cyan-600">MIN</span>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                placeholder="km"
+                value={distanceKm}
+                onChange={(e) => setDistanceKm(e.target.value)}
+                aria-label="Distance in km"
+                className="w-16 bg-gray-950 border border-cyan-800 rounded px-2 py-1.5 text-sm font-mono text-cyan-200"
+              />
+              <span className="text-xs font-mono text-cyan-600">KM</span>
+              <input
+                type="number"
+                min="60"
+                max="220"
+                placeholder="bpm"
+                value={averageHeartRate}
+                onChange={(e) => setAverageHeartRate(e.target.value)}
+                aria-label="Average Heart Rate"
+                className="w-16 bg-gray-950 border border-cyan-800 rounded px-2 py-1.5 text-sm font-mono text-cyan-200"
+              />
+              <span className="text-xs font-mono text-cyan-600">HR</span>
             </div>
             <div className="text-xs font-mono text-cyan-400">
               VOLUME: {totalVolume.toLocaleString()} kg

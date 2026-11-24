@@ -515,3 +515,165 @@ test("System v2: SystemCommandCenter & GoalStudioModal complete quests, pass run
   expect(onAddGoal.mock.calls[0][0].blueprintId).toBe("strict-muscle-up");
 });
 
+test("Aerobic Goal Engine: analyzes Apple Health cardio workouts, HR zones, pace/VO2 gaps, and FitLib prescriptions", () => {
+  const {
+    analyzeAerobicGoalProgress,
+    buildAerobicCoachBrief,
+    formatPace,
+  } = require("./services/aerobicGoalService");
+
+  const now = Date.now();
+  const day = 86400000;
+
+  // Simulated real Apple Health payload with HKWorkoutActivityTypeRunning + separate HR samples + VO2 max
+  const runStart = new Date(now - 2 * day).toISOString();
+  const runMid = new Date(now - 2 * day + 12 * 60000).toISOString();
+  const mockHealth = {
+    source: "Apple HealthKit",
+    vo2Max: { current: 45.0, previous: 43.8 },
+    restingHeartRate: { current: 54 },
+    heartRate: {
+      max: 192,
+      min: 54,
+      data: [{ date: runMid, value: 158 }], // Should cross-correlate into the run without direct avgHR
+    },
+    workouts: {
+      data: [
+        // Moderate "grey zone" 5 km run in 24:00 (4:48/km)
+        {
+          date: runStart,
+          type: "HKWorkoutActivityTypeRunning",
+          duration: 24,
+          unit: "minutes",
+          distance: 5.0,
+          distanceUnit: "km",
+          calories: 320,
+        },
+        // Another moderate 40 min run (8 km)
+        {
+          date: new Date(now - 4 * day).toISOString(),
+          type: "HKWorkoutActivityTypeRunning",
+          duration: 40,
+          unit: "minutes",
+          distance: 8.0,
+          distanceUnit: "km",
+          averageHeartRate: 156,
+        },
+        // Non-cardio strength workout should be ignored by aerobic analyzer
+        {
+          date: new Date(now - 3 * day).toISOString(),
+          type: "HKWorkoutActivityTypeTraditionalStrengthTraining",
+          duration: 50,
+          unit: "minutes",
+          calories: 280,
+        },
+      ],
+    },
+  };
+
+  const analysis = analyzeAerobicGoalProgress(mockHealth, "sub20-5k", { nowMs: now });
+
+  expect(analysis.hasCardioData).toBe(true);
+  expect(analysis.totalCardioWorkouts28d).toBe(2);
+  // Cross-correlated HR from heartRate.data into first workout
+  expect(analysis.recentCardioWorkouts[0].avgHR).toBe(158);
+  // VO2 gap: 50.0 - 45.0 = 5.0 ml/kg/min
+  expect(analysis.vo2.gap).toBe(5.0);
+  expect(analysis.vo2.trend).toBe(1.2);
+  // Pace derived directly from measured 5 km in 24 min = 4:48/km vs 4:00/km target
+  expect(analysis.pace.source).toBe("measured");
+  expect(formatPace(analysis.pace.currentMinPerKm)).toBe("4:48 /km");
+  expect(analysis.pace.projectedTimeFormatted).toBe("24:00");
+  // Grey-zone threshold trap detected (both runs ~82% HRmax -> moderate)
+  expect(analysis.intensity.moderatePct).toBe(100);
+  expect(analysis.recommendations.some((r) => r.kbRef === "E13-HR-ZONE-TRAINING")).toBe(true);
+  expect(analysis.recommendations.some((r) => r.kbRef === "E2-LISS")).toBe(true);
+
+  const brief = buildAerobicCoachBrief(analysis);
+  expect(brief.cardioGoal).toBe("Sub-20 Minute 5K");
+  expect(brief.vo2Max).toContain("45 / 50");
+});
+
+test("AerobicGoalAnalyzer renders goal gap metrics, FitLib links, and switches presets", () => {
+  const AerobicGoalAnalyzer = require("./components/dashboard/AerobicGoalAnalyzer").default;
+  const { analyzeAerobicGoalProgress } = require("./services/aerobicGoalService");
+
+  const analysis = analyzeAerobicGoalProgress(
+    {
+      source: "Apple HealthKit",
+      vo2Max: { current: 46.5, previous: 45.5 },
+      workouts: {
+        data: [
+          {
+            date: new Date().toISOString(),
+            type: "running",
+            duration: 30,
+            unit: "minutes",
+            distance: 6.0,
+            distanceUnit: "km",
+            averageHeartRate: 138,
+          },
+        ],
+      },
+    },
+    "sub20-5k"
+  );
+
+  const onSelectGoal = jest.fn();
+  const onOpenKnowledgeNote = jest.fn();
+
+  render(
+    <AerobicGoalAnalyzer
+      analysis={analysis}
+      selectedGoalId="sub20-5k"
+      onSelectGoal={onSelectGoal}
+      onOpenKnowledgeNote={onOpenKnowledgeNote}
+    />
+  );
+
+  expect(screen.getByText(/APPLE HEALTH AEROBIC & CARDIO GOAL ENGINE/i)).toBeInTheDocument();
+  expect(screen.getByText(/Sub-20 Minute 5K/i)).toBeInTheDocument();
+  expect(screen.getByText(/46.5/)).toBeInTheDocument();
+
+  fireEvent.click(screen.getByText("VO2 Max 55+"));
+  expect(onSelectGoal).toHaveBeenCalledWith("vo2-elite");
+});
+
+test("Visual Comfort Theme Engine: cycles Obsidian, Matrix Night, and Daylight modes cleanly", () => {
+  const {
+    applyVisualTheme,
+    cycleVisualTheme,
+    getSavedTheme,
+  } = require("./utils/themeUtils");
+  const Header = require("./components/dashboard/Header").default;
+
+  expect(getSavedTheme()).toBe("obsidian");
+  const night = cycleVisualTheme("obsidian");
+  expect(night).toBe("matrix-night");
+  expect(document.documentElement.getAttribute("data-theme")).toBe("matrix-night");
+  expect(getSavedTheme()).toBe("matrix-night");
+
+  const day = cycleVisualTheme("matrix-night");
+  expect(day).toBe("daylight");
+  expect(document.documentElement.getAttribute("data-theme")).toBe("daylight");
+
+  const reset = applyVisualTheme("obsidian");
+  expect(reset).toBe("obsidian");
+
+  const onCycleTheme = jest.fn();
+  render(
+    <Header
+      isConnecting={false}
+      theme="obsidian"
+      onCycleTheme={onCycleTheme}
+      onOpenSettings={jest.fn()}
+      onOpenAIChatbot={jest.fn()}
+    />
+  );
+
+  fireEvent.click(screen.getByLabelText(/Switch visual theme/i));
+  expect(onCycleTheme).toHaveBeenCalledTimes(1);
+});
+
+
+

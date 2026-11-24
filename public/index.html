@@ -1,15 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="obsidian">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="NEO•VITRU Transhumanist Fitness System" />
+    <meta name="theme-color" content="#0b1117" />
+    <meta name="description" content="NEO•VITRU — Evidence-based Solo-Leveling personal fitness, physical skill & Apple Health optimization system." />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <title>NEO•VITRU</title>
-    
+    <title>NEO•VITRU — Personal Performance System</title>
+
+    <!-- Prevent theme flash before React mounts -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem('neo-vitru-ui-visual-theme');
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            if (parsed === 'obsidian' || parsed === 'matrix-night' || parsed === 'daylight') {
+              document.documentElement.setAttribute('data-theme', parsed);
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
+
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -17,52 +32,24 @@
         theme: {
           extend: {
             colors: {
-              'cyber-cyan': '#08f7fe',
-              'cyber-pink': '#fe53bb',
-              'cyber-purple': '#7b2cbf',
-              'cyber-black': '#09131b',
+              'cyber-cyan': '#38bdf8',
+              'cyber-pink': '#fb7185',
+              'cyber-purple': '#818cf8',
+              'cyber-black': '#0b1117',
+              'matrix-green': '#34d399',
             }
           }
         }
       }
     </script>
-    
-    <!-- Typography: Inter for effortless readability + Share Tech Mono for telemetry -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Share+Tech+Mono&display=swap">
-    <style>
-      .font-sans {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      }
-      .font-mono {
-        font-family: 'Share Tech Mono', monospace;
-      }
-      
-      .scanlines {
-        background: linear-gradient(
-          to bottom,
-          transparent 50%,
-          rgba(0, 255, 255, 0.05) 50%
-        );
-        background-size: 100% 4px;
-      }
-      
-      .animate-scan {
-        animation: scan 2s linear infinite;
-      }
-      
-      @keyframes scan {
-        0% {
-          background-position: 0 -100%;
-        }
-        100% {
-          background-position: 0 100%;
-        }
-      }
-      
-      .glow-cyan {
-        box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
-      }
-    </style>
+
+    <!-- Ergonomic Typography: Plus Jakarta Sans / Inter for calm reading + JetBrains Mono for tabular System telemetry -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap"
+    />
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

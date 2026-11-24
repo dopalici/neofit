@@ -105,7 +105,7 @@ export default function GoalStudioModal({ isOpen, onClose, onAddGoal }) {
       aria-modal="true"
       aria-label="Goal & Skill Blueprint Studio"
     >
-      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-[#0a141f] border border-slate-700 rounded-xl shadow-2xl">
+      <div className="system-window nv-modal-surface w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl">
         {/* Modal Header */}
         <div className="sticky top-0 z-10 bg-[#0a141f]/95 backdrop-blur border-b border-slate-800 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">

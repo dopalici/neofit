@@ -36,6 +36,7 @@ export default function AIChatbot({
   readiness: propsReadiness,
   progression: propsProgression,
   systemState: propsSystemState,
+  aerobicAnalysis: propsAerobicAnalysis,
   pendingPrompt,
   onConsumePendingPrompt,
 } = {}) {
@@ -100,6 +101,7 @@ export default function AIChatbot({
           readiness: propsReadiness,
           progression: propsProgression,
           systemState: propsSystemState,
+          aerobicAnalysis: propsAerobicAnalysis,
         };
 
         const response = await generateFitnessAdvice(trimmed, userData, userGoals);
@@ -126,6 +128,7 @@ export default function AIChatbot({
       propsReadiness,
       propsProgression,
       propsSystemState,
+      propsAerobicAnalysis,
       userGoals,
     ]
   );
@@ -171,7 +174,8 @@ export default function AIChatbot({
       <button
         onClick={() => setInternalIsOpen(true)}
         title="Open System AI Coach"
-        className="fixed bottom-6 right-6 bg-slate-950 text-cyan-300 border border-cyan-500/70 rounded-full p-3.5 shadow-xl shadow-cyan-950/50 hover:bg-cyan-400 hover:text-slate-950 transition-colors z-40"
+        aria-label="Open System AI Coach"
+        className="fixed bottom-20 md:bottom-6 right-5 bg-cyan-400 text-slate-950 rounded-full p-3.5 shadow-xl shadow-cyan-950/50 hover:bg-cyan-300 transition-colors z-40"
       >
         <Sparkles size={22} />
       </button>
@@ -186,7 +190,7 @@ export default function AIChatbot({
       : 'OFFLINE FITLIB RAG';
 
   return (
-    <div className="fixed bottom-6 right-6 w-[25rem] max-w-[calc(100vw-2rem)] h-[74vh] bg-[#09131d] border border-cyan-500/40 rounded-xl shadow-2xl shadow-black/70 flex flex-col overflow-hidden z-50">
+    <div className="system-window nv-modal-surface fixed bottom-20 md:bottom-6 right-4 sm:right-6 w-[25rem] max-w-[calc(100vw-2rem)] h-[72vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden z-50">
       {/* Header */}
       <div className="bg-slate-950 border-b border-slate-800 px-4 py-3 flex justify-between items-center">
         <div className="flex items-center min-w-0">

@@ -301,15 +301,34 @@ function processXMLData(data, dataCollections) {
         // Add to all dates array for tracking date range
         allDates.push(date);
 
+        const rawUnit = String(item.unit || "minutes").toLowerCase();
+        const durationMinutes = rawUnit.startsWith("s")
+          ? Number((duration / 60).toFixed(2))
+          : duration;
+
         workoutData.push({
           date: date.toISOString(),
+          endDate: item.endDate || null,
           type: type,
-          duration: duration,
-          unit: item.unit || "seconds",
+          duration: durationMinutes,
+          unit: "minutes",
           calories:
-            item.calories !== undefined ? parseFloat(item.calories) : null,
+            item.calories !== undefined && item.calories !== null
+              ? parseFloat(item.calories)
+              : null,
           distance:
-            item.distance !== undefined ? parseFloat(item.distance) : null,
+            item.distance !== undefined && item.distance !== null
+              ? parseFloat(item.distance)
+              : null,
+          distanceUnit: item.distanceUnit || null,
+          averageHeartRate:
+            item.averageHeartRate !== undefined && item.averageHeartRate !== null
+              ? parseFloat(item.averageHeartRate)
+              : null,
+          maxHeartRate:
+            item.maxHeartRate !== undefined && item.maxHeartRate !== null
+              ? parseFloat(item.maxHeartRate)
+              : null,
         });
       } catch (error) {
         console.warn("Error processing workout data:", error);

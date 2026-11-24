@@ -30,9 +30,10 @@ export const EXERCISE_DATABASE = [
   { id: "hanging_leg_raise", name: "Hanging Leg Raise", category: "Strength", muscleGroup: "Core", defaultSets: 3, defaultReps: 12, kbRef: "EXL-88" },
 
   // Cardio / Conditioning
-  { id: "running_intervals", name: "400m Running Intervals", category: "Cardio", muscleGroup: "Full Body", defaultSets: 6, defaultReps: 1, kbRef: "E11" },
-  { id: "rowing_ergometer", name: "Rowing Ergometer (500m)", category: "Cardio", muscleGroup: "Full Body", defaultSets: 4, defaultReps: 1, kbRef: "EXL-96" },
-  { id: "assault_bike", name: "Assault / Air Bike Sprints", category: "Cardio", muscleGroup: "Full Body", defaultSets: 8, defaultReps: 1, kbRef: "EXL-100" },
+  { id: "zone2_run", name: "Zone 2 Aerobic Base Run", category: "Cardio", muscleGroup: "Full Body", defaultSets: 1, defaultReps: 1, kbRef: "E2-LISS" },
+  { id: "running_intervals", name: "400m Running Intervals", category: "Cardio", muscleGroup: "Full Body", defaultSets: 6, defaultReps: 1, kbRef: "E11-VO2MAX-TRAINING" },
+  { id: "rowing_ergometer", name: "Rowing Ergometer (500m)", category: "Cardio", muscleGroup: "Full Body", defaultSets: 4, defaultReps: 1, kbRef: "E9-ROWING" },
+  { id: "assault_bike", name: "Assault / Air Bike Sprints", category: "Cardio", muscleGroup: "Full Body", defaultSets: 8, defaultReps: 1, kbRef: "E3-HIIT" },
 ];
 
 export const WORKOUT_TEMPLATES = [
@@ -63,6 +64,13 @@ export const WORKOUT_TEMPLATES = [
     type: "strength_training",
     estimatedMinutes: 45,
     exercises: ["barbell_back_squat", "barbell_bench_press", "barbell_row", "overhead_press", "plank"],
+  },
+  {
+    id: "zone2_base_run",
+    name: "Zone 2 Aerobic Base Run",
+    type: "running",
+    estimatedMinutes: 35,
+    exercises: ["zone2_run"],
   },
   {
     id: "hiit_conditioning",
@@ -123,6 +131,8 @@ export function saveWorkoutSession({
   name = "Strength Session",
   type = "strength_training",
   duration = 45,
+  distance = null,
+  averageHeartRate = null,
   exercises = [],
   notes = "",
 }) {
@@ -133,8 +143,16 @@ export function saveWorkoutSession({
   const volume = calculateWorkoutVolume(exercises);
   const durationMin = Math.max(1, Number(duration) || 30);
   // Estimate kcal (~6.5 kcal/min for resistance training, ~10 kcal/min for HIIT/cardio)
-  const kcalPerMin = type === "hiit" || type === "running" ? 10 : 6.5;
+  const kcalPerMin = type === "hiit" || type === "running" || type === "cycling" ? 10 : 6.5;
   const estimatedCalories = Math.round(durationMin * kcalPerMin);
+  const parsedDistance =
+    distance !== null && distance !== "" && Number(distance) > 0
+      ? Number(Number(distance).toFixed(2))
+      : null;
+  const parsedAvgHr =
+    averageHeartRate !== null && averageHeartRate !== "" && Number(averageHeartRate) > 40
+      ? Math.round(Number(averageHeartRate))
+      : null;
 
   const session = {
     id: `workout-${Date.now()}`,
@@ -144,6 +162,9 @@ export function saveWorkoutSession({
     duration: durationMin,
     unit: "minutes",
     calories: estimatedCalories,
+    distance: parsedDistance,
+    distanceUnit: parsedDistance ? "km" : null,
+    averageHeartRate: parsedAvgHr,
     volume,
     completedSets: totalCompletedSets,
     exercises,

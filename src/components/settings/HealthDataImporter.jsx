@@ -334,23 +334,60 @@ export default function EnhancedHealthDataImporter({ onDataImported }) {
               const workout = workouts[i];
               const type = workout.getAttribute('workoutActivityType');
               const duration = workout.getAttribute('duration');
+              const durationUnit = (workout.getAttribute('durationUnit') || 'min').toLowerCase();
               const startDate = workout.getAttribute('startDate');
-              const calories = workout.getAttribute('totalEnergyBurned');
-              const distance = workout.getAttribute('totalDistance');
+              const endDate = workout.getAttribute('endDate');
+              let calories = workout.getAttribute('totalEnergyBurned');
+              let distance = workout.getAttribute('totalDistance');
+              let distanceUnit = workout.getAttribute('totalDistanceUnit') || null;
+              let averageHeartRate = null;
+              let maxHeartRate = null;
+
+              // iOS 16+ Apple Health exports heart rate, distance, and energy inside <WorkoutStatistics>
+              const statsNodes = workout.querySelectorAll('WorkoutStatistics');
+              for (let s = 0; s < statsNodes.length; s++) {
+                const stat = statsNodes[s];
+                const statType = (stat.getAttribute('type') || '').toLowerCase();
+                if (statType.includes('heartrate')) {
+                  const avg = parseFloat(stat.getAttribute('average'));
+                  const max = parseFloat(stat.getAttribute('maximum'));
+                  if (!isNaN(avg)) averageHeartRate = avg;
+                  if (!isNaN(max)) maxHeartRate = max;
+                } else if (!distance && statType.includes('distance')) {
+                  const sum = stat.getAttribute('sum');
+                  if (sum) {
+                    distance = sum;
+                    distanceUnit = stat.getAttribute('unit') || distanceUnit;
+                  }
+                } else if (!calories && statType.includes('activeenergyburned')) {
+                  const sum = stat.getAttribute('sum');
+                  if (sum) calories = sum;
+                }
+              }
               
               if (duration && startDate) {
-                // Make sure we have a valid date and numeric duration
                 const durationNum = parseFloat(duration);
                 const date = new Date(startDate);
                 
                 if (!isNaN(durationNum) && !isNaN(date.getTime())) {
+                  // Normalize duration into minutes using Apple Health's actual durationUnit
+                  const durationMinutes = durationUnit.startsWith('s')
+                    ? durationNum / 60
+                    : durationUnit.startsWith('h')
+                    ? durationNum * 60
+                    : durationNum;
+
                   data.workouts.push({
                     date: startDate,
+                    endDate: endDate || null,
                     type: type || 'unknown',
-                    duration: durationNum,
-                    unit: 'seconds',
+                    duration: Number(durationMinutes.toFixed(2)),
+                    unit: 'minutes',
                     calories: calories ? parseFloat(calories) : null,
-                    distance: distance ? parseFloat(distance) : null
+                    distance: distance ? parseFloat(distance) : null,
+                    distanceUnit: distanceUnit || null,
+                    averageHeartRate,
+                    maxHeartRate,
                   });
                 }
               }

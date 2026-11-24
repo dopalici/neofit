@@ -124,7 +124,7 @@ export default function SystemCommandCenter({
   return (
     <section className="space-y-5" aria-label="System Command Center">
       {/* Row 1: Operator Status Strip + Readiness Gate */}
-      <div className="bg-[#0b1520] border border-slate-800 rounded-xl p-5 shadow-lg shadow-black/30">
+      <div className="system-window rounded-2xl p-5 sm:p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
           {/* Left: Hunter / Operator Rank & Consistency */}
           <div className="flex items-center gap-4">
@@ -367,7 +367,7 @@ export default function SystemCommandCenter({
       {/* Row 3: 60-Second Daily Execution Workspace (Daily Quests + Skill Progression Tree) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Left: Today's Daily Quests (5 cols) */}
-        <div className="lg:col-span-5 bg-[#0b1520] border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+        <div className="lg:col-span-5 system-window rounded-2xl p-5 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -473,7 +473,7 @@ export default function SystemCommandCenter({
         </div>
 
         {/* Right: Active Goal & Physical Skill Progression Tree (7 cols) */}
-        <div className="lg:col-span-7 bg-[#0b1520] border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+        <div className="lg:col-span-7 system-window rounded-2xl p-5 flex flex-col justify-between">
           <div>
             {/* Goal Switcher + Add Goal */}
             <div className="flex flex-wrap items-center justify-between gap-2 mb-4">

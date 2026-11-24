@@ -6,15 +6,18 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        'cyber-cyan': '#08f7fe',
-        'cyber-pink': '#ff2a6d',
-        'cyber-black': '#09131b',
-        'cyber-gray': '#1a1a1a',
+        'cyber-cyan': '#38bdf8',
+        'cyber-pink': '#fb7185',
+        'cyber-black': '#0b1117',
+        'cyber-gray': '#121c27',
+        'matrix-green': '#34d399',
       },
       fontFamily: {
-        'mono': ['Share Tech Mono', 'monospace'],
+        'sans': ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        'display': ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+        'mono': ['JetBrains Mono', 'ui-monospace', 'monospace'],
       }
     },
   },
   plugins: [],
-}
+};

@@ -9,10 +9,12 @@ export default function BiometricPanel({ userData, healthData }) {
   }, []);
 
   return (
-    <div className="bg-gray-900 border border-cyan-800 rounded shadow-lg shadow-cyan-900/20 overflow-hidden">
-      <div className="p-6">
+    <div className="system-window rounded-2xl overflow-hidden">
+      <div className="p-5 sm:p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-mono text-cyan-300">BIOMETRIC IMPRINT</h2>
+          <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wide">
+            Biometric Imprint
+          </h2>
           <div className="flex items-center">
             <span className="text-xs text-cyan-600 font-mono mr-2">
               {healthData?.source && healthData.source !== 'none'

@@ -2,44 +2,360 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   NEO•VITRU VISION-SCIENCE DESIGN TOKENS (Solo-Leveling × Matrix Ergonomics)
+   - Avoids pure #000000 + harsh neon glare to prevent halation & eye strain
+   - Uses elevated charcoal surfaces, crisp off-white copy, and disciplined
+     semantic accents (~8% viewport rule) across 3 circadian-friendly themes
+   ========================================================================== */
+
+:root,
+[data-theme="obsidian"] {
+  --nv-bg: #0b1117;
+  --nv-bg-elevated: #0f1722;
+  --nv-surface: #121c27;
+  --nv-surface-2: #172433;
+  --nv-surface-subtle: #0d151e;
+  --nv-border: rgba(148, 163, 184, 0.16);
+  --nv-border-strong: rgba(56, 189, 248, 0.34);
+  --nv-text: #e6edf5;
+  --nv-text-secondary: #9fb0c4;
+  --nv-text-muted: #76889e;
+  --nv-accent: #38bdf8;
+  --nv-accent-soft: rgba(56, 189, 248, 0.14);
+  --nv-matrix: #34d399;
+  --nv-matrix-soft: rgba(52, 211, 153, 0.14);
+  --nv-amber: #fbbf24;
+  --nv-rose: #fb7185;
+  --nv-corner: rgba(56, 189, 248, 0.42);
+  --nv-aura-primary: rgba(56, 189, 248, 0.08);
+  --nv-aura-secondary: rgba(52, 211, 153, 0.06);
+  --nv-shadow: 0 10px 30px -12px rgba(2, 6, 12, 0.65);
+}
+
+/* Low-Blue Circadian Matrix Night Mode (reduces 460-480nm melanopic blue spikes) */
+[data-theme="matrix-night"] {
+  --nv-bg: #0a100e;
+  --nv-bg-elevated: #0f1815;
+  --nv-surface: #131f1b;
+  --nv-surface-2: #192923;
+  --nv-surface-subtle: #0d1512;
+  --nv-border: rgba(110, 231, 183, 0.14);
+  --nv-border-strong: rgba(52, 211, 153, 0.38);
+  --nv-text: #e5efe9;
+  --nv-text-secondary: #9bb5a8;
+  --nv-text-muted: #718c7f;
+  --nv-accent: #34d399;
+  --nv-accent-soft: rgba(52, 211, 153, 0.14);
+  --nv-matrix: #6ee7b7;
+  --nv-matrix-soft: rgba(110, 231, 183, 0.14);
+  --nv-amber: #f5b95b;
+  --nv-rose: #f28482;
+  --nv-corner: rgba(52, 211, 153, 0.48);
+  --nv-aura-primary: rgba(52, 211, 153, 0.08);
+  --nv-aura-secondary: rgba(16, 185, 129, 0.05);
+  --nv-shadow: 0 10px 30px -12px rgba(0, 8, 5, 0.72);
+}
+
+/* High-Ambient Daylight Clarity Mode (glare-free gym & outdoor sunlight readability) */
+[data-theme="daylight"] {
+  --nv-bg: #f1f5f9;
+  --nv-bg-elevated: #f8fafc;
+  --nv-surface: #ffffff;
+  --nv-surface-2: #f8fafc;
+  --nv-surface-subtle: #eef3f8;
+  --nv-border: rgba(15, 23, 42, 0.11);
+  --nv-border-strong: rgba(2, 132, 199, 0.35);
+  --nv-text: #0f172a;
+  --nv-text-secondary: #475569;
+  --nv-text-muted: #64748b;
+  --nv-accent: #0284c7;
+  --nv-accent-soft: rgba(2, 132, 199, 0.1);
+  --nv-matrix: #059669;
+  --nv-matrix-soft: rgba(5, 150, 105, 0.1);
+  --nv-amber: #d97706;
+  --nv-rose: #e11d48;
+  --nv-corner: rgba(2, 132, 199, 0.42);
+  --nv-aura-primary: rgba(2, 132, 199, 0.06);
+  --nv-aura-secondary: rgba(5, 150, 105, 0.05);
+  --nv-shadow: 0 8px 24px -10px rgba(15, 23, 42, 0.12);
+}
+
+html {
+  background-color: var(--nv-bg);
+  color: var(--nv-text);
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #060d14;
-  color: #e2e8f0;
+  background-color: var(--nv-bg);
+  color: var(--nv-text);
+  transition: background-color 220ms ease, color 220ms ease;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+h1, h2, h3, .font-display {
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.015em;
 }
 
-.scanlines {
-  background: linear-gradient(
-    to bottom,
-    transparent 50%,
-    rgba(0, 255, 255, 0.05) 50%
-  );
-  background-size: 100% 4px;
+.font-sans {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-.animate-scan {
-  /* animation: scan 2s linear infinite; */
+.font-mono, code {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
 }
 
-@keyframes scan {
-  0% {
-    background-position: 0 -100%;
+/* Accessible focus rings (WCAG 2.2) */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--nv-accent);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   SIGNATURE SOLO-LEVELING "SYSTEM WINDOW" FRAME
+   Subtle 9px HUD corner brackets give unmistakable System identity without
+   noisy full-box neon outlines or text-overlapping scanlines.
+   ========================================================================== */
+.system-window {
+  position: relative;
+  background-color: var(--nv-surface);
+  border: 1px solid var(--nv-border);
+  box-shadow: var(--nv-shadow);
+  transition: border-color 180ms ease, background-color 220ms ease;
+}
+
+.system-window::before,
+.system-window::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  border-color: var(--nv-corner);
+  transition: border-color 200ms ease;
+}
+
+.system-window::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--nv-corner);
+  border-left: 2px solid var(--nv-corner);
+  border-top-left-radius: 10px;
+}
+
+.system-window::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--nv-corner);
+  border-right: 2px solid var(--nv-corner);
+  border-bottom-right-radius: 10px;
+}
+
+.nv-surface-subtle {
+  background-color: var(--nv-surface-subtle);
+  border: 1px solid var(--nv-border);
+}
+
+/* Gentle atmospheric ambient backdrop (replaces eye-fatiguing full-screen CRT lines) */
+.system-ambient-backdrop {
+  background:
+    radial-gradient(60% 40% at 15% 0%, var(--nv-aura-primary) 0%, transparent 70%),
+    radial-gradient(50% 35% at 85% 5%, var(--nv-aura-secondary) 0%, transparent 70%);
+}
+
+/* Subtle Matrix code-horizon dot pattern confined to top header edge only */
+.system-dot-horizon {
+  background-image: radial-gradient(var(--nv-border) 1px, transparent 1px);
+  background-size: 20px 20px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55) 0%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55) 0%, transparent 100%);
+}
+
+/* ==========================================================================
+   ERGONOMIC THEME BRIDGE FOR DEEP SUB-MODULES
+   Harmonizes all dashboard tabs (Sleep, Habits, Nutrition, Health Data,
+   Workouts, Biometrics) so every view respects low-halation & Daylight/Night.
+   ========================================================================== */
+
+/* 1. Soften legacy harsh cyan-600/700 contrast across dark modes */
+[data-theme="obsidian"] .text-cyan-600,
+[data-theme="matrix-night"] .text-cyan-600 {
+  color: var(--nv-text-secondary) !important;
+}
+
+[data-theme="obsidian"] .text-cyan-500 {
+  color: #7dd3fc !important;
+}
+
+[data-theme="matrix-night"] .text-cyan-400,
+[data-theme="matrix-night"] .text-cyan-300,
+[data-theme="matrix-night"] .text-cyan-200,
+[data-theme="matrix-night"] .text-cyber-cyan {
+  color: #6ee7b7 !important;
+}
+
+[data-theme="matrix-night"] .border-cyan-800,
+[data-theme="matrix-night"] .border-cyan-900,
+[data-theme="matrix-night"] .border-cyan-500\/40 {
+  border-color: rgba(52, 211, 153, 0.28) !important;
+}
+
+[data-theme="matrix-night"] .bg-cyan-400,
+[data-theme="matrix-night"] .bg-cyan-500 {
+  background-color: #34d399 !important;
+}
+
+/* 2. Upgrade legacy raw gray-900 / gray-950 containers into cohesive elevated surfaces */
+.nv-app-shell .bg-gray-900,
+.nv-app-shell .bg-\[\#0b1520\] {
+  background-color: var(--nv-surface);
+}
+
+.nv-app-shell .bg-gray-950,
+.nv-app-shell .bg-slate-950\/80,
+.nv-app-shell .bg-slate-950\/75,
+.nv-app-shell .bg-slate-950\/85,
+.nv-app-shell .bg-slate-950\/70,
+.nv-app-shell .bg-slate-950\/90,
+.nv-app-shell .bg-slate-950 {
+  background-color: var(--nv-surface-subtle);
+}
+
+.nv-app-shell .border-cyan-800,
+.nv-app-shell .border-cyan-900,
+.nv-app-shell .border-slate-800 {
+  border-color: var(--nv-border);
+}
+
+/* 3. Daylight Clarity Theme Overrides — guarantees WCAG AA contrast everywhere */
+[data-theme="daylight"] .nv-app-shell,
+[data-theme="daylight"] .nv-modal-surface {
+  color: var(--nv-text);
+}
+
+[data-theme="daylight"] .bg-\[\#060d14\],
+[data-theme="daylight"] .bg-\[\#08111a\]\/90,
+[data-theme="daylight"] .bg-\[\#08111a\]\/80,
+[data-theme="daylight"] .bg-\[\#09131d\],
+[data-theme="daylight"] .bg-\[\#0a141f\],
+[data-theme="daylight"] .bg-gray-900,
+[data-theme="daylight"] .bg-gray-900\/95 {
+  background-color: var(--nv-surface) !important;
+}
+
+[data-theme="daylight"] .bg-slate-900,
+[data-theme="daylight"] .bg-slate-900\/90,
+[data-theme="daylight"] .bg-slate-900\/70,
+[data-theme="daylight"] .bg-gray-800 {
+  background-color: #e9eff6 !important;
+}
+
+[data-theme="daylight"] .text-slate-100,
+[data-theme="daylight"] .text-slate-200,
+[data-theme="daylight"] .text-gray-100,
+[data-theme="daylight"] .text-white {
+  color: #0f172a !important;
+}
+
+[data-theme="daylight"] .text-slate-300,
+[data-theme="daylight"] .text-gray-300 {
+  color: #334155 !important;
+}
+
+[data-theme="daylight"] .text-slate-400,
+[data-theme="daylight"] .text-slate-500,
+[data-theme="daylight"] .text-gray-400 {
+  color: #475569 !important;
+}
+
+[data-theme="daylight"] .text-cyan-200,
+[data-theme="daylight"] .text-cyan-300,
+[data-theme="daylight"] .text-cyan-400,
+[data-theme="daylight"] .text-cyan-500,
+[data-theme="daylight"] .text-cyan-600,
+[data-theme="daylight"] .text-cyber-cyan {
+  color: #0369a1 !important;
+}
+
+[data-theme="daylight"] .text-emerald-300,
+[data-theme="daylight"] .text-emerald-400 {
+  color: #047857 !important;
+}
+
+[data-theme="daylight"] .text-amber-200,
+[data-theme="daylight"] .text-amber-300,
+[data-theme="daylight"] .text-amber-400 {
+  color: #b45309 !important;
+}
+
+[data-theme="daylight"] .text-rose-300,
+[data-theme="daylight"] .text-rose-400 {
+  color: #be123c !important;
+}
+
+[data-theme="daylight"] .border-slate-700,
+[data-theme="daylight"] .border-slate-800,
+[data-theme="daylight"] .border-cyan-800,
+[data-theme="daylight"] .border-cyan-900 {
+  border-color: rgba(15, 23, 42, 0.13) !important;
+}
+
+[data-theme="daylight"] .bg-cyan-400,
+[data-theme="daylight"] .bg-emerald-500 {
+  color: #ffffff !important;
+}
+
+[data-theme="daylight"] .bg-cyan-400 {
+  background-color: #0284c7 !important;
+}
+
+[data-theme="daylight"] .bg-emerald-500 {
+  background-color: #059669 !important;
+}
+
+[data-theme="daylight"] .bg-cyan-950\/50,
+[data-theme="daylight"] .bg-cyan-950\/60,
+[data-theme="daylight"] .bg-cyan-950,
+[data-theme="daylight"] .bg-cyan-900\/50,
+[data-theme="daylight"] .bg-cyan-900\/60,
+[data-theme="daylight"] .bg-cyan-900 {
+  background-color: rgba(2, 132, 199, 0.11) !important;
+}
+
+[data-theme="daylight"] .bg-emerald-950\/20,
+[data-theme="daylight"] .bg-emerald-950\/25,
+[data-theme="daylight"] .bg-emerald-950\/30,
+[data-theme="daylight"] .bg-emerald-950\/60,
+[data-theme="daylight"] .bg-emerald-950\/70 {
+  background-color: rgba(5, 150, 105, 0.1) !important;
+}
+
+[data-theme="daylight"] .bg-amber-950\/70 {
+  background-color: rgba(217, 119, 6, 0.1) !important;
+}
+
+[data-theme="daylight"] .bg-rose-950\/70 {
+  background-color: rgba(225, 29, 72, 0.1) !important;
+}
+
+/* Respect user OS Reduced Motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  100% {
-    background-position: 0 100%;
-  }
-}
-
-.glow-cyan {
-  box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
 }

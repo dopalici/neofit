@@ -133,22 +133,24 @@ export default function ActivityLog({ workouts: propWorkouts }) {
   const hasMore = visibleCount < workouts.length;
 
   return (
-    <div className="bg-gray-900 border border-cyan-800 rounded shadow-lg shadow-cyan-900/20 overflow-hidden">
-      <div className="p-6">
+    <div className="system-window rounded-2xl overflow-hidden">
+      <div className="p-5 sm:p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-mono text-cyan-300">ACTIVITY LOG</h2>
+          <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wide">
+            Activity Log
+          </h2>
           <div className="flex items-center space-x-2">
             {workouts.length > 0 && (
-              <span className="text-xs text-cyan-600 font-mono">
+              <span className="text-xs text-slate-400 font-mono">
                 {visibleWorkouts.length}/{workouts.length}
               </span>
             )}
             <button
               onClick={() => loadWorkouts(true)}
-              className="text-cyan-500 hover:text-cyan-300"
+              className="text-cyan-400 hover:text-cyan-300"
               title="Refresh activities"
             >
-              <RotateCw size={12} className={isLoading ? "animate-spin" : ""} />
+              <RotateCw size={13} className={isLoading ? "animate-spin" : ""} />
             </button>
           </div>
         </div>

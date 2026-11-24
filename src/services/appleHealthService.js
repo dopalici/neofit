@@ -896,6 +896,21 @@ class AppleHealthService {
           unit: w.unit || 'minutes',
           calories: w.calories !== undefined && w.calories !== null ? Number(w.calories) : null,
           distance: w.distance !== undefined && w.distance !== null ? Number(w.distance) : null,
+          distanceUnit: w.distanceUnit || null,
+          averageHeartRate:
+            w.averageHeartRate !== undefined && w.averageHeartRate !== null
+              ? Number(w.averageHeartRate)
+              : w.heartRate?.average !== undefined && w.heartRate?.average !== null
+              ? Number(w.heartRate.average)
+              : null,
+          maxHeartRate:
+            w.maxHeartRate !== undefined && w.maxHeartRate !== null
+              ? Number(w.maxHeartRate)
+              : w.heartRate?.max !== undefined && w.heartRate?.max !== null
+              ? Number(w.heartRate.max)
+              : null,
+          heartRate: w.heartRate || null,
+          intensity: w.intensity || null,
           source: w.source || 'Apple HealthKit',
         }))
         .sort((a, b) => new Date(b.date) - new Date(a.date));

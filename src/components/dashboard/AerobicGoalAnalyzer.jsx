@@ -1,18 +1,13 @@
 // src/components/dashboard/AerobicGoalAnalyzer.jsx
-// Visual Apple Health Workout -> Aerobic Fitness / Cardio Goal Gap Analyzer
-// Shows exact distance from cardio goals + FitLib-grounded next-step prescriptions.
+// Hallmark Sport-inspired Apple Health Aerobic & Cardio Goal Results Sheet.
+// Shows exact quantitative distance to cardio goals + FitLib-grounded next actions.
 
 import React from "react";
 import {
-  Activity,
   AlertTriangle,
   BookOpen,
-  Flame,
-  Gauge,
   HeartPulse,
   Sparkles,
-  Timer,
-  TrendingUp,
   Upload,
 } from "lucide-react";
 import {
@@ -20,26 +15,26 @@ import {
   formatPace,
 } from "../../services/aerobicGoalService";
 
-const PRIORITY_STYLES = {
-  URGENT: "bg-rose-500/15 text-rose-300 border-rose-500/40",
-  HIGH: "bg-amber-500/15 text-amber-300 border-amber-500/40",
-  MEDIUM: "bg-cyan-500/15 text-cyan-300 border-cyan-500/40",
-  LOW: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40",
+const PRIORITY_COLOR = {
+  URGENT: "var(--nv-rose)",
+  HIGH: "var(--nv-amber)",
+  MEDIUM: "var(--nv-accent)",
+  LOW: "var(--nv-matrix)",
 };
 
-const ACWR_STYLES = {
-  "SWEET SPOT": "bg-emerald-500/15 text-emerald-300 border-emerald-500/40",
-  "BUILDING BASE": "bg-cyan-500/15 text-cyan-300 border-cyan-500/40",
-  "HIGH RAMP": "bg-amber-500/15 text-amber-300 border-amber-500/40",
-  "SPIKE RISK": "bg-rose-500/15 text-rose-300 border-rose-500/40",
-  DETRAINING: "bg-amber-500/15 text-amber-300 border-amber-500/40",
-  "NO DATA": "bg-slate-800 text-slate-400 border-slate-700",
+const ACWR_COLOR = {
+  "SWEET SPOT": "var(--nv-matrix)",
+  "BUILDING BASE": "var(--nv-accent)",
+  "HIGH RAMP": "var(--nv-amber)",
+  "SPIKE RISK": "var(--nv-rose)",
+  DETRAINING: "var(--nv-amber)",
+  "NO DATA": "var(--nv-text-muted)",
 };
 
-const ZONE_BADGE = {
-  easy: "bg-emerald-950/70 text-emerald-300 border-emerald-700/50",
-  moderate: "bg-amber-950/70 text-amber-300 border-amber-700/50",
-  hard: "bg-rose-950/70 text-rose-300 border-rose-700/50",
+const ZONE_COLOR = {
+  easy: "var(--nv-matrix)",
+  moderate: "var(--nv-amber)",
+  hard: "var(--nv-rose)",
 };
 
 export default function AerobicGoalAnalyzer({
@@ -65,7 +60,7 @@ export default function AerobicGoalAnalyzer({
     recentCardioWorkouts,
   } = analysis;
 
-  const acwrClass = ACWR_STYLES[volume.acwrStatus] || ACWR_STYLES["NO DATA"];
+  const acwrColor = ACWR_COLOR[volume.acwrStatus] || ACWR_COLOR["NO DATA"];
 
   const buildGapHeadline = () => {
     if (!hasCardioData) {
@@ -89,152 +84,209 @@ export default function AerobicGoalAnalyzer({
     if (volume.gapMinutes > 0) {
       parts.push(`+${volume.gapMinutes} min/wk aerobic volume needed`);
     } else if (volume.effectiveWeeklyMinutes > 0) {
-      parts.push(`Weekly volume target met (${volume.effectiveWeeklyMinutes}m/wk)`);
+      parts.push(`Weekly volume target met (${volume.effectiveWeeklyMinutes} m/wk)`);
     }
     return parts.join(" · ");
   };
 
   return (
     <section
-      className="system-window rounded-2xl p-5 sm:p-6 space-y-5"
+      className="system-window rounded-xl p-5 sm:p-6 space-y-6"
       aria-label="Apple Health Aerobic & Cardio Goal Analyzer"
     >
-      {/* Header + Goal Selector */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <HeartPulse size={18} className="text-cyan-400" />
-            <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wide">
+      {/* Header + Preset Switcher */}
+      <div className="flex flex-col gap-4 pb-5 nv-rule-bottom">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <HeartPulse size={16} style={{ color: "var(--nv-accent)" }} className="shrink-0" aria-hidden="true" />
+            <h2
+              className="text-sm font-semibold tracking-tight"
+              style={{ color: "var(--nv-text)" }}
+            >
               APPLE HEALTH AEROBIC & CARDIO GOAL ENGINE
             </h2>
-            <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${acwrClass}`}>
-              LOAD: {volume.acwr ? `${volume.acwr}× ` : ""}
-              {volume.acwrStatus}
-            </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">{buildGapHeadline()}</p>
+          <span
+            className="text-xs font-mono font-medium tabular-nums shrink-0"
+            style={{ color: acwrColor }}
+          >
+            Load: {volume.acwr ? `${volume.acwr}× ` : ""}
+            {volume.acwrStatus}
+          </span>
         </div>
 
-        {/* Preset Switcher */}
-        <div className="flex flex-wrap gap-1.5">
-          {AEROBIC_GOAL_PRESETS.map((preset) => {
-            const active = preset.id === selectedGoalId;
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => onSelectGoal && onSelectGoal(preset.id)}
-                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-mono border transition-colors ${
-                  active
-                    ? "bg-cyan-500/20 border-cyan-400 text-cyan-200"
-                    : "bg-slate-950/70 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
-                }`}
-              >
-                {preset.shortName}
-              </button>
-            );
-          })}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <p className="text-xs" style={{ color: "var(--nv-text-secondary)" }}>
+            {buildGapHeadline()}
+          </p>
+
+          {/* Single-row Goal Preset Switcher */}
+          <div className="flex flex-wrap gap-1.5 shrink-0" role="tablist" aria-label="Aerobic goal target">
+            {AEROBIC_GOAL_PRESETS.map((preset) => {
+              const active = preset.id === selectedGoalId;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => onSelectGoal && onSelectGoal(preset.id)}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border transition-colors"
+                  style={{
+                    backgroundColor: active
+                      ? "var(--nv-accent)"
+                      : "var(--nv-surface-subtle)",
+                    borderColor: active ? "var(--nv-accent)" : "var(--nv-rule)",
+                    color: active ? "var(--nv-accent-ink)" : "var(--nv-text-secondary)",
+                  }}
+                >
+                  {preset.shortName}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Overall Distance-to-Goal Progress Strip */}
-      <div className="bg-slate-950/85 border border-slate-800/90 rounded-xl p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+      {/* Active Benchmark Readiness Rail */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-400">
-              ACTIVE CARDIO BENCHMARK
-            </span>
-            <h3 className="text-base font-semibold text-slate-100">{goal.name}</h3>
-            <p className="text-xs text-slate-400">{goal.description}</p>
+            <h3 className="text-lg sm:text-xl font-semibold" style={{ color: "var(--nv-text)" }}>
+              {goal.name}
+            </h3>
+            <p className="text-xs sm:text-sm mt-0.5" style={{ color: "var(--nv-text-secondary)" }}>
+              {goal.description}
+            </p>
           </div>
           <div className="text-right">
-            <span className="text-3xl font-bold font-mono text-cyan-300 tabular-nums">
+            <span
+              className="nv-figure text-3xl sm:text-4xl font-semibold"
+              style={{ color: "var(--nv-accent)" }}
+            >
               {overallGoalReadinessPct}%
             </span>
-            <p className="text-[10px] font-mono text-slate-400 uppercase">
-              GOAL READINESS
+            <p className="text-[11px] mt-0.5" style={{ color: "var(--nv-text-muted)" }}>
+              Goal readiness
             </p>
           </div>
         </div>
-        <div className="h-2.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+        <div
+          className="h-2 w-full rounded-full overflow-hidden"
+          style={{ backgroundColor: "var(--nv-surface-2)" }}
+        >
           <div
-            className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-500"
-            style={{ width: `${Math.max(hasCardioData ? 5 : 0, overallGoalReadinessPct)}%` }}
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.max(hasCardioData ? 5 : 0, overallGoalReadinessPct)}%`,
+              backgroundColor: "var(--nv-accent)",
+            }}
           />
         </div>
       </div>
 
-      {/* 4 Quantitative Aerobic Gap Pillars */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      {/* 4 Quantitative Aerobic Gap Pillars — Ruled Olympic Timing Sheet */}
+      <div
+        className="nv-rule-bar pt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 lg:divide-x gap-y-5 sm:gap-5 lg:gap-0"
+        style={{ borderColor: "var(--nv-rule)" }}
+      >
         {/* Pillar 1: VO2 Max */}
-        <div className="bg-slate-950/75 border border-slate-800 rounded-xl p-4 space-y-2">
+        <div className="lg:pr-5 space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-mono text-slate-400 flex items-center">
-              <Gauge size={13} className="mr-1.5 text-cyan-400" />
-              VO2 MAX
+            <span className="font-medium" style={{ color: "var(--nv-text-muted)" }}>
+              VO2 Max
             </span>
-            <span className="font-mono text-[11px] text-slate-500">
-              TARGET {vo2.target}
+            <span className="font-mono tabular-nums" style={{ color: "var(--nv-text-muted)" }}>
+              Target {vo2.target}
             </span>
           </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-2xl font-bold font-mono text-slate-100 tabular-nums">
+          <div className="flex items-baseline justify-between gap-2">
+            <span
+              className="nv-figure text-2xl sm:text-3xl font-semibold"
+              style={{ color: "var(--nv-text)" }}
+            >
               {vo2.current !== null ? vo2.current : "--"}
-              <span className="text-xs font-normal text-slate-500 ml-1">ml/kg</span>
+              <span
+                className="text-xs font-normal ml-1"
+                style={{ color: "var(--nv-text-muted)" }}
+              >
+                ml/kg
+              </span>
             </span>
             {vo2.trend !== null && (
               <span
-                className={`text-xs font-mono ${
-                  vo2.trend >= 0 ? "text-emerald-400" : "text-rose-400"
-                }`}
+                className="text-xs font-mono font-semibold tabular-nums"
+                style={{
+                  color: vo2.trend >= 0 ? "var(--nv-matrix)" : "var(--nv-rose)",
+                }}
               >
                 {vo2.trend >= 0 ? `+${vo2.trend}` : vo2.trend}
               </span>
             )}
           </div>
-          <div className="h-1.5 bg-slate-900 rounded-full overflow-hidden">
+          <div
+            className="h-1.5 rounded-full overflow-hidden"
+            style={{ backgroundColor: "var(--nv-surface-2)" }}
+          >
             <div
-              className="h-full bg-cyan-400"
-              style={{ width: `${vo2.progressPct ?? 0}%` }}
+              className="h-full rounded-full"
+              style={{
+                width: `${vo2.progressPct ?? 0}%`,
+                backgroundColor: "var(--nv-accent)",
+              }}
             />
           </div>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-xs" style={{ color: "var(--nv-text-secondary)" }}>
             {vo2.gap !== null
               ? vo2.gap > 0
-                ? `Gap: +${vo2.gap} ml/kg/min to goal`
+                ? `+${vo2.gap} ml/kg/min to goal`
                 : "Target VO2 ceiling achieved"
               : "Sync Apple Watch Cardio Fitness"}
           </p>
         </div>
 
         {/* Pillar 2: Pace & Projected Race Time */}
-        <div className="bg-slate-950/75 border border-slate-800 rounded-xl p-4 space-y-2">
+        <div
+          className="pt-5 sm:pt-0 lg:px-5 space-y-2"
+          style={{ borderColor: "var(--nv-rule)" }}
+        >
           <div className="flex items-center justify-between text-xs">
-            <span className="font-mono text-slate-400 flex items-center">
-              <Timer size={13} className="mr-1.5 text-emerald-400" />
-              PACE & {goal.distanceKm}K PROJ
+            <span className="font-medium" style={{ color: "var(--nv-text-muted)" }}>
+              {goal.distanceKm}K Projection
             </span>
-            <span className="font-mono text-[11px] text-slate-500">
-              GOAL {pace.targetTimeFormatted}
+            <span className="font-mono tabular-nums" style={{ color: "var(--nv-text-muted)" }}>
+              Goal {pace.targetTimeFormatted}
             </span>
           </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-2xl font-bold font-mono text-slate-100 tabular-nums">
+          <div className="flex items-baseline justify-between gap-2">
+            <span
+              className="nv-figure text-2xl sm:text-3xl font-semibold"
+              style={{ color: "var(--nv-text)" }}
+            >
               {pace.projectedTimeFormatted}
             </span>
-            <span className="text-xs font-mono text-cyan-300">
+            <span
+              className="text-xs font-mono font-medium tabular-nums"
+              style={{ color: "var(--nv-accent)" }}
+            >
               {pace.currentFormatted}
             </span>
           </div>
-          <div className="h-1.5 bg-slate-900 rounded-full overflow-hidden">
+          <div
+            className="h-1.5 rounded-full overflow-hidden"
+            style={{ backgroundColor: "var(--nv-surface-2)" }}
+          >
             <div
-              className="h-full bg-emerald-400"
-              style={{ width: `${pace.progressPct ?? 0}%` }}
+              className="h-full rounded-full"
+              style={{
+                width: `${pace.progressPct ?? 0}%`,
+                backgroundColor: "var(--nv-matrix)",
+              }}
             />
           </div>
-          <p className="text-[11px] text-slate-400 truncate">
+          <p className="text-xs truncate" style={{ color: "var(--nv-text-secondary)" }}>
             {pace.source === "measured"
-              ? `From run: ${pace.bestRunSummary}`
+              ? `Best run: ${pace.bestRunSummary}`
               : pace.source === "vo2-estimated"
               ? "Estimated from Apple Health VO2 max"
               : "Log a ≥1.5 km run with distance"}
@@ -242,84 +294,104 @@ export default function AerobicGoalAnalyzer({
         </div>
 
         {/* Pillar 3: Weekly Aerobic Volume */}
-        <div className="bg-slate-950/75 border border-slate-800 rounded-xl p-4 space-y-2">
+        <div
+          className="pt-5 sm:pt-0 lg:px-5 space-y-2"
+          style={{ borderColor: "var(--nv-rule)" }}
+        >
           <div className="flex items-center justify-between text-xs">
-            <span className="font-mono text-slate-400 flex items-center">
-              <Activity size={13} className="mr-1.5 text-amber-400" />
-              WEEKLY VOLUME
+            <span className="font-medium" style={{ color: "var(--nv-text-muted)" }}>
+              Weekly Volume
             </span>
-            <span className="font-mono text-[11px] text-slate-500">
-              GOAL {volume.targetWeeklyMinutes}m
+            <span className="font-mono tabular-nums" style={{ color: "var(--nv-text-muted)" }}>
+              Goal {volume.targetWeeklyMinutes} m
             </span>
           </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-2xl font-bold font-mono text-slate-100 tabular-nums">
+          <div className="flex items-baseline justify-between gap-2">
+            <span
+              className="nv-figure text-2xl sm:text-3xl font-semibold"
+              style={{ color: "var(--nv-text)" }}
+            >
               {volume.weekly7dMinutes}
-              <span className="text-xs font-normal text-slate-500 ml-1">min</span>
+              <span
+                className="text-xs font-normal ml-1"
+                style={{ color: "var(--nv-text-muted)" }}
+              >
+                min
+              </span>
             </span>
-            <span className="text-xs font-mono text-slate-400">
+            <span
+              className="text-xs font-mono tabular-nums"
+              style={{ color: "var(--nv-text-secondary)" }}
+            >
               {volume.weekly7dKm > 0 ? `${volume.weekly7dKm} km · ` : ""}
-              {volume.weekly7dSessions}×/wk
+              {volume.weekly7dSessions}×
             </span>
           </div>
-          <div className="h-1.5 bg-slate-900 rounded-full overflow-hidden">
+          <div
+            className="h-1.5 rounded-full overflow-hidden"
+            style={{ backgroundColor: "var(--nv-surface-2)" }}
+          >
             <div
-              className="h-full bg-amber-400"
-              style={{ width: `${volume.progressPct}%` }}
+              className="h-full rounded-full"
+              style={{
+                width: `${volume.progressPct}%`,
+                backgroundColor: "var(--nv-amber)",
+              }}
             />
           </div>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-xs" style={{ color: "var(--nv-text-secondary)" }}>
             {volume.gapMinutes > 0
-              ? `4-wk avg ${volume.chronicWeeklyMinutes}m · +${volume.gapMinutes}m gap`
-              : `4-wk avg ${volume.chronicWeeklyMinutes}m · Target met`}
+              ? `4-wk avg ${volume.chronicWeeklyMinutes} m · +${volume.gapMinutes} m gap`
+              : `4-wk avg ${volume.chronicWeeklyMinutes} m · On target`}
           </p>
         </div>
 
         {/* Pillar 4: 80/20 Polarized Intensity Split */}
-        <div className="bg-slate-950/75 border border-slate-800 rounded-xl p-4 space-y-2">
+        <div
+          className="pt-5 sm:pt-0 lg:pl-5 space-y-2"
+          style={{ borderColor: "var(--nv-rule)" }}
+        >
           <div className="flex items-center justify-between text-xs">
-            <span className="font-mono text-slate-400 flex items-center">
-              <Flame size={13} className="mr-1.5 text-rose-400" />
-              80/20 ZONE SPLIT
+            <span className="font-medium" style={{ color: "var(--nv-text-muted)" }}>
+              80/20 Zone Split
             </span>
-            <span className="font-mono text-[11px] text-slate-500">
-              28 DAYS
+            <span className="font-mono tabular-nums" style={{ color: "var(--nv-text-muted)" }}>
+              28 days
             </span>
           </div>
-          <div className="flex items-baseline justify-between font-mono text-xs tabular-nums">
-            <span className="text-emerald-300">Z1–2 {intensity.easyPct}%</span>
-            <span className="text-amber-300">Z3–4 {intensity.moderatePct}%</span>
-            <span className="text-rose-300">Z5 {intensity.hardPct}%</span>
+          <div className="flex items-baseline justify-between text-xs font-mono font-semibold tabular-nums pt-1">
+            <span style={{ color: "var(--nv-matrix)" }}>Z1–2 {intensity.easyPct}%</span>
+            <span style={{ color: "var(--nv-amber)" }}>Z3–4 {intensity.moderatePct}%</span>
+            <span style={{ color: "var(--nv-rose)" }}>Z5 {intensity.hardPct}%</span>
           </div>
-          <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden flex border border-slate-800">
+          <div
+            className="h-2 rounded-full overflow-hidden flex"
+            style={{ backgroundColor: "var(--nv-surface-2)" }}
+          >
             <div
-              className="h-full bg-emerald-500"
-              style={{ width: `${intensity.easyPct}%` }}
+              style={{ width: `${intensity.easyPct}%`, backgroundColor: "var(--nv-matrix)" }}
               title={`Easy Z1-2: ${intensity.easyMin} min`}
             />
             <div
-              className="h-full bg-amber-500"
-              style={{ width: `${intensity.moderatePct}%` }}
+              style={{ width: `${intensity.moderatePct}%`, backgroundColor: "var(--nv-amber)" }}
               title={`Moderate Z3-4: ${intensity.moderateMin} min`}
             />
             <div
-              className="h-full bg-rose-500"
-              style={{ width: `${intensity.hardPct}%` }}
+              style={{ width: `${intensity.hardPct}%`, backgroundColor: "var(--nv-rose)" }}
               title={`Hard Z5: ${intensity.hardMin} min`}
             />
           </div>
-          <p className="text-[11px] text-slate-400 line-clamp-2">
+          <p className="text-xs line-clamp-2" style={{ color: "var(--nv-text-secondary)" }}>
             {intensity.verdict}
           </p>
         </div>
       </div>
 
-      {/* What To Improve Next (Grounded in FitLib Vault) */}
-      <div>
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <h3 className="text-xs font-mono uppercase tracking-wider text-cyan-400 flex items-center">
-            <TrendingUp size={14} className="mr-1.5" />
-            WHAT TO IMPROVE NEXT (FITLIB-GROUNDED PRESCRIPTIONS)
+      {/* What To Improve Next — Ruled 3-Column FitLib Prescription Ledger */}
+      <div className="pt-5 nv-rule-top space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold" style={{ color: "var(--nv-text)" }}>
+            What to Improve Next
           </h3>
           {onAskCoach && (
             <button
@@ -329,118 +401,158 @@ export default function AerobicGoalAnalyzer({
                   `Look at my Apple Health aerobic goal analysis for ${goal.name} (${overallGoalReadinessPct}% ready, VO2 ${vo2.current ?? "unknown"}/${vo2.target}, projected ${pace.projectedTimeFormatted} vs ${pace.targetTimeFormatted}, ${volume.weekly7dMinutes} min this week, 80/20 split ${intensity.easyPct}/${intensity.moderatePct}/${intensity.hardPct}). Build my exact 7-day cardio schedule.`
                 )
               }
-              className="text-xs font-mono px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-200 flex items-center transition-colors"
+              className="nv-btn-secondary text-xs"
+              style={{ minHeight: "36px", padding: "0 0.875rem" }}
             >
-              <Sparkles size={12} className="mr-1.5 text-cyan-400" />
-              BUILD 7-DAY CARDIO PLAN WITH GEMINI
+              <Sparkles size={12} style={{ color: "var(--nv-accent)" }} aria-hidden="true" />
+              Build 7-Day Cardio Plan
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-          {recommendations.map((rec) => (
-            <div
-              key={rec.id}
-              className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col justify-between gap-3"
-            >
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-mono text-slate-400 uppercase">
-                    {rec.category}
-                  </span>
-                  <span
-                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
-                      PRIORITY_STYLES[rec.priority] || PRIORITY_STYLES.MEDIUM
-                    }`}
+        <div
+          className={`grid grid-cols-1 ${
+            recommendations.length === 1
+              ? "md:grid-cols-1"
+              : recommendations.length === 2
+              ? "md:grid-cols-2"
+              : "md:grid-cols-3"
+          } divide-y md:divide-y-0 md:divide-x rounded-xl border overflow-hidden`}
+          style={{
+            backgroundColor: "var(--nv-surface-subtle)",
+            borderColor: "var(--nv-rule)",
+          }}
+        >
+          {recommendations.map((rec) => {
+            const prioColor = PRIORITY_COLOR[rec.priority] || PRIORITY_COLOR.MEDIUM;
+            return (
+              <div
+                key={rec.id}
+                className="p-4 sm:p-5 flex flex-col justify-between gap-3.5"
+                style={{ borderColor: "var(--nv-rule)" }}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2 text-[11px] font-medium">
+                    <span style={{ color: "var(--nv-text-muted)" }}>{rec.category}</span>
+                    <span className="inline-flex items-center gap-1" style={{ color: prioColor }}>
+                      {rec.priority === "URGENT" && (
+                        <AlertTriangle size={11} aria-hidden="true" />
+                      )}
+                      {rec.priority}
+                    </span>
+                  </div>
+                  <h4
+                    className="text-sm font-semibold leading-snug"
+                    style={{ color: "var(--nv-text)" }}
                   >
-                    {rec.priority === "URGENT" && (
-                      <AlertTriangle size={10} className="inline mr-1" />
-                    )}
-                    {rec.priority}
-                  </span>
+                    {rec.title}
+                  </h4>
+                  <p className="text-xs leading-relaxed" style={{ color: "var(--nv-text-secondary)" }}>
+                    {rec.why}
+                  </p>
+                  <p
+                    className="text-xs leading-relaxed pt-2 nv-rule-top"
+                    style={{ color: "var(--nv-text)" }}
+                  >
+                    <strong className="font-semibold" style={{ color: "var(--nv-accent)" }}>
+                      Next session:{" "}
+                    </strong>
+                    {rec.prescription}
+                  </p>
                 </div>
-                <h4 className="text-sm font-semibold text-slate-100 leading-snug">
-                  {rec.title}
-                </h4>
-                <p className="text-xs text-slate-400 leading-relaxed">{rec.why}</p>
-                <div className="pt-1 text-xs text-slate-200 bg-[#0b1520] border border-slate-800/80 rounded-lg p-2.5 leading-relaxed">
-                  <strong className="text-cyan-300 font-mono text-[10px] block mb-0.5">
-                    NEXT SESSION ACTION
-                  </strong>
-                  {rec.prescription}
-                </div>
-              </div>
 
-              {rec.kbRef && onOpenKnowledgeNote && (
-                <button
-                  type="button"
-                  onClick={() => onOpenKnowledgeNote(rec.kbRef)}
-                  className="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 flex items-center pt-1"
-                >
-                  <BookOpen size={11} className="mr-1.5 shrink-0" />
-                  <span className="truncate">Read FitLib: {rec.kbTitle || rec.kbRef}</span>
-                </button>
-              )}
-            </div>
-          ))}
+                {rec.kbRef && onOpenKnowledgeNote && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenKnowledgeNote(rec.kbRef)}
+                    className="text-xs font-medium inline-flex items-center gap-1.5 hover:underline self-start"
+                    style={{ color: "var(--nv-accent)" }}
+                  >
+                    <BookOpen size={12} className="shrink-0" aria-hidden="true" />
+                    <span className="truncate">Read FitLib: {rec.kbTitle || rec.kbRef}</span>
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Analyzed Apple Health Cardio Workouts Table or Clean Empty Action Bar */}
-      <div className="pt-2 border-t border-slate-800/80">
+      {/* Analyzed Apple Health Workouts Results Table or Clean Empty Bar */}
+      <div className="pt-5 nv-rule-top">
         {recentCardioWorkouts.length > 0 ? (
           <div>
-            <div className="flex items-center justify-between mb-2.5">
-              <h4 className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
-                ANALYZED APPLE HEALTH CARDIO WORKOUTS ({analysis.totalCardioWorkouts28d} IN LAST 28D)
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <h4 className="text-xs font-semibold" style={{ color: "var(--nv-text)" }}>
+                Analyzed Apple Health Cardio Sessions ({analysis.totalCardioWorkouts28d} in 28d)
               </h4>
-              <span className="text-[11px] font-mono text-slate-500">
-                HRmax Ref: {analysis.maxHREstimate} bpm (Tanaka/Observed)
+              <span
+                className="text-xs font-mono tabular-nums"
+                style={{ color: "var(--nv-text-muted)" }}
+              >
+                HRmax Ref: {analysis.maxHREstimate} bpm
               </span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-mono">
+              <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="text-[10px] text-slate-500 border-b border-slate-800">
-                    <th className="py-2 pr-3">DATE</th>
-                    <th className="py-2 pr-3">ACTIVITY</th>
-                    <th className="py-2 pr-3">DURATION</th>
-                    <th className="py-2 pr-3">DISTANCE</th>
-                    <th className="py-2 pr-3">PACE</th>
-                    <th className="py-2 pr-3">AVG HR</th>
-                    <th className="py-2">ZONE</th>
+                  <tr
+                    className="border-b"
+                    style={{
+                      color: "var(--nv-text-muted)",
+                      borderColor: "var(--nv-rule)",
+                    }}
+                  >
+                    <th className="py-2.5 pr-3 font-medium">Date</th>
+                    <th className="py-2.5 pr-3 font-medium">Activity</th>
+                    <th className="py-2.5 pr-3 font-medium">Duration</th>
+                    <th className="py-2.5 pr-3 font-medium">Distance</th>
+                    <th className="py-2.5 pr-3 font-medium">Pace</th>
+                    <th className="py-2.5 pr-3 font-medium">Avg HR</th>
+                    <th className="py-2.5 font-medium text-right">Zone</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                <tbody className="divide-y" style={{ borderColor: "var(--nv-rule)" }}>
                   {recentCardioWorkouts.slice(0, 6).map((w, idx) => (
-                    <tr key={`${w.date}-${idx}`} className="hover:bg-slate-900/40">
-                      <td className="py-2 pr-3 text-slate-400">
+                    <tr key={`${w.date}-${idx}`} style={{ borderColor: "var(--nv-rule)" }}>
+                      <td className="py-2.5 pr-3" style={{ color: "var(--nv-text-muted)" }}>
                         {new Date(w.date).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
                         })}
                       </td>
-                      <td className="py-2 pr-3 text-slate-100 font-sans font-medium">
+                      <td className="py-2.5 pr-3 font-medium" style={{ color: "var(--nv-text)" }}>
                         {w.label}
                       </td>
-                      <td className="py-2 pr-3 tabular-nums">{Math.round(w.durationMin)} min</td>
-                      <td className="py-2 pr-3 tabular-nums">
+                      <td
+                        className="py-2.5 pr-3 font-mono tabular-nums"
+                        style={{ color: "var(--nv-text-secondary)" }}
+                      >
+                        {Math.round(w.durationMin)} min
+                      </td>
+                      <td
+                        className="py-2.5 pr-3 font-mono tabular-nums"
+                        style={{ color: "var(--nv-text-secondary)" }}
+                      >
                         {w.distanceKm ? `${w.distanceKm} km` : "--"}
                       </td>
-                      <td className="py-2 pr-3 tabular-nums text-cyan-300">
+                      <td
+                        className="py-2.5 pr-3 font-mono font-medium tabular-nums"
+                        style={{ color: "var(--nv-accent)" }}
+                      >
                         {w.paceMinPerKm ? formatPace(w.paceMinPerKm) : "--"}
                       </td>
-                      <td className="py-2 pr-3 tabular-nums">
+                      <td
+                        className="py-2.5 pr-3 font-mono tabular-nums"
+                        style={{ color: "var(--nv-text-secondary)" }}
+                      >
                         {w.avgHR ? `${w.avgHR} bpm` : "--"}
                       </td>
-                      <td className="py-2">
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded border ${
-                            ZONE_BADGE[w.zone] || ZONE_BADGE.easy
-                          }`}
-                        >
-                          {w.zoneLabel}
-                        </span>
+                      <td
+                        className="py-2.5 text-right font-medium"
+                        style={{ color: ZONE_COLOR[w.zone] || ZONE_COLOR.easy }}
+                      >
+                        {w.zoneLabel}
                       </td>
                     </tr>
                   ))}
@@ -449,31 +561,34 @@ export default function AerobicGoalAnalyzer({
             </div>
           </div>
         ) : (
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/70 border border-dashed border-slate-800 rounded-xl p-4">
-            <div className="text-xs text-slate-400">
-              <strong className="text-slate-200 block mb-0.5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="text-xs max-w-lg" style={{ color: "var(--nv-text-secondary)" }}>
+              <strong className="block mb-0.5 text-sm font-semibold" style={{ color: "var(--nv-text)" }}>
                 No Apple Health cardio workouts detected yet
               </strong>
-              Upload your Apple Health `export.xml`/CSV or log a run/bike session to unlock pace gap, 80/20 zone split, and ACWR tracking.
+              Sync Apple Health on iPhone, import your Apple Health XML export, or log a run to
+              unlock pace projections, 80/20 zone splits, and ACWR load monitoring.
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {onOpenHealthImport && (
                 <button
                   type="button"
                   onClick={onOpenHealthImport}
-                  className="px-3 py-2 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-semibold text-xs font-mono rounded-lg flex items-center"
+                  className="nv-btn-primary text-xs"
+                  style={{ minHeight: "38px" }}
                 >
-                  <Upload size={13} className="mr-1.5" />
-                  IMPORT APPLE HEALTH
+                  <Upload size={13} aria-hidden="true" />
+                  Import Apple Health
                 </button>
               )}
               {onOpenWorkouts && (
                 <button
                   type="button"
                   onClick={onOpenWorkouts}
-                  className="px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-mono rounded-lg"
+                  className="nv-btn-secondary text-xs"
+                  style={{ minHeight: "38px" }}
                 >
-                  LOG CARDIO RUN
+                  Log Cardio Run
                 </button>
               )}
             </div>

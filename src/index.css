@@ -1,90 +1,132 @@
+/* NeoVitru · Design System v3 · OKLCH Perceptual Tokens · Sora Unified Typeface */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ==========================================================================
-   NEO•VITRU VISION-SCIENCE DESIGN TOKENS (Solo-Leveling × Matrix Ergonomics)
-   - Avoids pure #000000 + harsh neon glare to prevent halation & eye strain
-   - Uses elevated charcoal surfaces, crisp off-white copy, and disciplined
-     semantic accents (~8% viewport rule) across 3 circadian-friendly themes
+   NEO•VITRU PRECISION BIOMETRICS × SOLO-LEVELING SYSTEM DESIGN TOKENS
+   - Perceptually uniform OKLCH lightness ramp (Obsidian · Matrix Night · Daylight)
+   - Architectural depth via surface steps + 1px/2px hairlines (no triple-nested boxes)
+   - Disciplined single-signal accents (<8% viewport) + zero pure-black halation
+   - Modern Web Baseline: oklch(), color-mix(in oklab), text-wrap: balance/pretty,
+     overflow-x: clip, tabular-nums, prefers-reduced-motion
    ========================================================================== */
 
 :root,
 [data-theme="obsidian"] {
-  --nv-bg: #0b1117;
-  --nv-bg-elevated: #0f1722;
-  --nv-surface: #121c27;
-  --nv-surface-2: #172433;
-  --nv-surface-subtle: #0d151e;
-  --nv-border: rgba(148, 163, 184, 0.16);
-  --nv-border-strong: rgba(56, 189, 248, 0.34);
-  --nv-text: #e6edf5;
-  --nv-text-secondary: #9fb0c4;
-  --nv-text-muted: #76889e;
-  --nv-accent: #38bdf8;
-  --nv-accent-soft: rgba(56, 189, 248, 0.14);
-  --nv-matrix: #34d399;
-  --nv-matrix-soft: rgba(52, 211, 153, 0.14);
-  --nv-amber: #fbbf24;
-  --nv-rose: #fb7185;
-  --nv-corner: rgba(56, 189, 248, 0.42);
-  --nv-aura-primary: rgba(56, 189, 248, 0.08);
-  --nv-aura-secondary: rgba(52, 211, 153, 0.06);
-  --nv-shadow: 0 10px 30px -12px rgba(2, 6, 12, 0.65);
+  --nv-bg: oklch(14.5% 0.015 245);
+  --nv-bg-elevated: oklch(17.2% 0.016 245);
+  --nv-surface: oklch(19.6% 0.017 245);
+  --nv-surface-2: oklch(23.2% 0.019 245);
+  --nv-surface-subtle: oklch(16.2% 0.015 245);
+
+  --nv-border: oklch(30% 0.016 245 / 0.72);
+  --nv-rule: oklch(28.5% 0.015 245);
+  --nv-rule-2: oklch(40% 0.022 245);
+  --nv-border-strong: oklch(72% 0.13 222 / 0.45);
+
+  --nv-text: oklch(94.5% 0.008 245);
+  --nv-text-secondary: oklch(75.5% 0.018 245);
+  --nv-text-muted: oklch(59% 0.018 245);
+
+  --nv-accent: oklch(76% 0.135 220);
+  --nv-accent-hi: oklch(82% 0.125 218);
+  --nv-accent-ink: oklch(14% 0.02 245);
+  --nv-accent-soft: oklch(76% 0.135 220 / 0.12);
+
+  --nv-matrix: oklch(76% 0.155 158);
+  --nv-matrix-soft: oklch(76% 0.155 158 / 0.12);
+  --nv-amber: oklch(80% 0.15 78);
+  --nv-amber-soft: oklch(80% 0.15 78 / 0.12);
+  --nv-rose: oklch(71% 0.165 18);
+  --nv-rose-soft: oklch(71% 0.165 18 / 0.12);
+
+  --nv-corner: oklch(76% 0.135 220 / 0.45);
+  --nv-aura-primary: oklch(76% 0.135 220 / 0.045);
+  --nv-aura-secondary: oklch(76% 0.155 158 / 0.03);
+  --nv-shadow: 0 18px 40px -24px oklch(5% 0.02 245 / 0.85);
+
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Low-Blue Circadian Matrix Night Mode (reduces 460-480nm melanopic blue spikes) */
+/* Circadian Low-Blue Matrix Night Mode (reduces 460-480nm melanopic blue spikes) */
 [data-theme="matrix-night"] {
-  --nv-bg: #0a100e;
-  --nv-bg-elevated: #0f1815;
-  --nv-surface: #131f1b;
-  --nv-surface-2: #192923;
-  --nv-surface-subtle: #0d1512;
-  --nv-border: rgba(110, 231, 183, 0.14);
-  --nv-border-strong: rgba(52, 211, 153, 0.38);
-  --nv-text: #e5efe9;
-  --nv-text-secondary: #9bb5a8;
-  --nv-text-muted: #718c7f;
-  --nv-accent: #34d399;
-  --nv-accent-soft: rgba(52, 211, 153, 0.14);
-  --nv-matrix: #6ee7b7;
-  --nv-matrix-soft: rgba(110, 231, 183, 0.14);
-  --nv-amber: #f5b95b;
-  --nv-rose: #f28482;
-  --nv-corner: rgba(52, 211, 153, 0.48);
-  --nv-aura-primary: rgba(52, 211, 153, 0.08);
-  --nv-aura-secondary: rgba(16, 185, 129, 0.05);
-  --nv-shadow: 0 10px 30px -12px rgba(0, 8, 5, 0.72);
+  --nv-bg: oklch(13.5% 0.014 156);
+  --nv-bg-elevated: oklch(16.4% 0.016 156);
+  --nv-surface: oklch(18.8% 0.018 156);
+  --nv-surface-2: oklch(22.5% 0.022 156);
+  --nv-surface-subtle: oklch(15.2% 0.015 156);
+
+  --nv-border: oklch(31% 0.024 156 / 0.72);
+  --nv-rule: oklch(28% 0.022 156);
+  --nv-rule-2: oklch(40% 0.034 156);
+  --nv-border-strong: oklch(77% 0.165 154 / 0.45);
+
+  --nv-text: oklch(93.5% 0.016 150);
+  --nv-text-secondary: oklch(75% 0.028 154);
+  --nv-text-muted: oklch(59% 0.026 154);
+
+  --nv-accent: oklch(79% 0.165 154);
+  --nv-accent-hi: oklch(84% 0.155 152);
+  --nv-accent-ink: oklch(14% 0.022 156);
+  --nv-accent-soft: oklch(79% 0.165 154 / 0.12);
+
+  --nv-matrix: oklch(82% 0.15 150);
+  --nv-matrix-soft: oklch(82% 0.15 150 / 0.12);
+  --nv-amber: oklch(80% 0.13 78);
+  --nv-amber-soft: oklch(80% 0.13 78 / 0.12);
+  --nv-rose: oklch(72% 0.14 20);
+  --nv-rose-soft: oklch(72% 0.14 20 / 0.12);
+
+  --nv-corner: oklch(79% 0.165 154 / 0.48);
+  --nv-aura-primary: oklch(79% 0.165 154 / 0.045);
+  --nv-aura-secondary: oklch(72% 0.13 158 / 0.025);
+  --nv-shadow: 0 18px 40px -24px oklch(4% 0.02 156 / 0.9);
 }
 
-/* High-Ambient Daylight Clarity Mode (glare-free gym & outdoor sunlight readability) */
+/* High-Ambient Daylight Clarity Mode (glare-free sunlit paper + blue-black ink) */
 [data-theme="daylight"] {
-  --nv-bg: #f1f5f9;
-  --nv-bg-elevated: #f8fafc;
-  --nv-surface: #ffffff;
-  --nv-surface-2: #f8fafc;
-  --nv-surface-subtle: #eef3f8;
-  --nv-border: rgba(15, 23, 42, 0.11);
-  --nv-border-strong: rgba(2, 132, 199, 0.35);
-  --nv-text: #0f172a;
-  --nv-text-secondary: #475569;
-  --nv-text-muted: #64748b;
-  --nv-accent: #0284c7;
-  --nv-accent-soft: rgba(2, 132, 199, 0.1);
-  --nv-matrix: #059669;
-  --nv-matrix-soft: rgba(5, 150, 105, 0.1);
-  --nv-amber: #d97706;
-  --nv-rose: #e11d48;
-  --nv-corner: rgba(2, 132, 199, 0.42);
-  --nv-aura-primary: rgba(2, 132, 199, 0.06);
-  --nv-aura-secondary: rgba(5, 150, 105, 0.05);
-  --nv-shadow: 0 8px 24px -10px rgba(15, 23, 42, 0.12);
+  --nv-bg: oklch(96.8% 0.005 248);
+  --nv-bg-elevated: oklch(98.6% 0.004 248);
+  --nv-surface: oklch(100% 0 0);
+  --nv-surface-2: oklch(94.8% 0.007 248);
+  --nv-surface-subtle: oklch(95.6% 0.006 248);
+
+  --nv-border: oklch(85% 0.01 248);
+  --nv-rule: oklch(87.5% 0.009 248);
+  --nv-rule-2: oklch(34% 0.035 250);
+  --nv-border-strong: oklch(54% 0.14 234 / 0.42);
+
+  --nv-text: oklch(17.5% 0.028 252);
+  --nv-text-secondary: oklch(40% 0.024 250);
+  --nv-text-muted: oklch(51% 0.02 250);
+
+  --nv-accent: oklch(54% 0.145 234);
+  --nv-accent-hi: oklch(48% 0.145 234);
+  --nv-accent-ink: oklch(99% 0 0);
+  --nv-accent-soft: oklch(54% 0.145 234 / 0.09);
+
+  --nv-matrix: oklch(52% 0.145 158);
+  --nv-matrix-soft: oklch(52% 0.145 158 / 0.09);
+  --nv-amber: oklch(58% 0.155 68);
+  --nv-amber-soft: oklch(58% 0.155 68 / 0.1);
+  --nv-rose: oklch(55% 0.185 16);
+  --nv-rose-soft: oklch(55% 0.185 16 / 0.1);
+
+  --nv-corner: oklch(54% 0.145 234 / 0.42);
+  --nv-aura-primary: oklch(54% 0.145 234 / 0.035);
+  --nv-aura-secondary: oklch(52% 0.145 158 / 0.025);
+  --nv-shadow: 0 12px 30px -18px oklch(18% 0.03 250 / 0.16);
 }
 
 html {
   background-color: var(--nv-bg);
   color: var(--nv-text);
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
   -webkit-text-size-adjust: 100%;
   font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
 }
@@ -92,21 +134,26 @@ html {
 body {
   margin: 0;
   font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
-  font-size: 14.5px;
-  line-height: 1.55;
+  font-size: 15px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
   background-color: var(--nv-bg);
   color: var(--nv-text);
-  transition: background-color 180ms ease, color 180ms ease;
+  transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
 }
 
-/* Single unified typeface across headings, body, and System telemetry */
+/* Unified Sora typography with balanced display headlines & tabular numbers */
 h1, h2, h3, .font-display {
   font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
 }
 
 .font-sans {
@@ -116,11 +163,22 @@ h1, h2, h3, .font-display {
 .font-mono {
   font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.015em;
+}
+
+.nv-figure {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+  line-height: 0.96;
 }
 
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+::selection {
+  background-color: color-mix(in oklab, var(--nv-accent) 26%, transparent);
+  color: var(--nv-text);
 }
 
 /* Rapid iOS touch response (eliminates 300ms double-tap delay) */
@@ -138,20 +196,20 @@ textarea {
 }
 
 .safe-bottom {
-  padding-bottom: max(0.375rem, env(safe-area-inset-bottom, 0px));
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
 }
 
 .safe-scroll-pad {
-  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .safe-scroll-pad {
-    padding-bottom: 2.5rem;
+    padding-bottom: 3rem;
   }
 }
 
-/* Accessible focus rings (WCAG 2.2) */
+/* Non-animated WCAG 2.2 focus rings */
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -162,100 +220,234 @@ textarea:focus-visible {
 }
 
 /* ==========================================================================
-   SIGNATURE SOLO-LEVELING "SYSTEM WINDOW" FRAME
-   Subtle 9px HUD corner brackets give unmistakable System identity without
-   noisy full-box neon outlines or text-overlapping scanlines.
+   ARCHITECTURAL SURFACES & RULES (Hallmark-disciplined Solo-Leveling HUD)
    ========================================================================== */
+.nv-shell {
+  overflow-x: clip;
+  background-color: var(--nv-bg);
+  color: var(--nv-text);
+}
+
 .system-window {
   position: relative;
   background-color: var(--nv-surface);
-  border: 1px solid var(--nv-border);
+  border: 1px solid var(--nv-rule);
   box-shadow: var(--nv-shadow);
-  transition: border-color 180ms ease, background-color 220ms ease;
+  transition: border-color var(--dur-short) var(--ease-out),
+    background-color var(--dur-short) var(--ease-out);
 }
 
+/* Precision 8px architectural corner ticks — unmistakable System signature without neon clutter */
 .system-window::before,
 .system-window::after {
   content: "";
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   pointer-events: none;
   border-color: var(--nv-corner);
-  transition: border-color 200ms ease;
+  transition: border-color var(--dur-short) var(--ease-out);
 }
 
 .system-window::before {
   top: -1px;
   left: -1px;
-  border-top: 2px solid var(--nv-corner);
-  border-left: 2px solid var(--nv-corner);
-  border-top-left-radius: 10px;
+  border-top: 1.5px solid var(--nv-corner);
+  border-left: 1.5px solid var(--nv-corner);
+  border-top-left-radius: inherit;
 }
 
 .system-window::after {
   bottom: -1px;
   right: -1px;
-  border-bottom: 2px solid var(--nv-corner);
-  border-right: 2px solid var(--nv-corner);
-  border-bottom-right-radius: 10px;
+  border-bottom: 1.5px solid var(--nv-corner);
+  border-right: 1.5px solid var(--nv-corner);
+  border-bottom-right-radius: inherit;
+}
+
+.nv-surface {
+  background-color: var(--nv-surface);
+}
+
+.nv-surface-2 {
+  background-color: var(--nv-surface-2);
 }
 
 .nv-surface-subtle {
   background-color: var(--nv-surface-subtle);
-  border: 1px solid var(--nv-border);
+  border: 1px solid var(--nv-rule);
 }
 
-/* Gentle atmospheric ambient backdrop (replaces eye-fatiguing full-screen CRT lines) */
+.nv-rule-top {
+  border-top: 1px solid var(--nv-rule);
+}
+
+.nv-rule-bottom {
+  border-bottom: 1px solid var(--nv-rule);
+}
+
+.nv-rule-bar {
+  border-top: 2px solid var(--nv-rule-2);
+}
+
+/* Crisp unified button primitives (8-state coverage) */
+.nv-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  border-radius: 0.625rem;
+  background-color: var(--nv-accent);
+  color: var(--nv-accent-ink);
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1;
+  transition: background-color var(--dur-micro) var(--ease-out),
+    transform var(--dur-micro) var(--ease-out),
+    opacity var(--dur-micro) var(--ease-out);
+}
+
+.nv-btn-primary:hover:not(:disabled) {
+  background-color: var(--nv-accent-hi);
+}
+
+.nv-btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.nv-btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nv-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1.125rem;
+  border-radius: 0.625rem;
+  background-color: transparent;
+  border: 1px solid var(--nv-rule-2);
+  color: var(--nv-text);
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1;
+  transition: background-color var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out),
+    transform var(--dur-micro) var(--ease-out);
+}
+
+.nv-btn-secondary:hover:not(:disabled) {
+  background-color: var(--nv-surface-2);
+  border-color: var(--nv-accent);
+}
+
+.nv-btn-secondary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.nv-btn-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Precision range slider for interactive readiness calibration */
+.nv-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--nv-rule-2);
+  outline: none;
+  cursor: pointer;
+}
+
+.nv-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--nv-accent);
+  border: 2px solid var(--nv-bg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  transition: transform var(--dur-micro) var(--ease-out);
+}
+
+.nv-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.12);
+}
+
+.nv-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--nv-accent);
+  border: 2px solid var(--nv-bg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Single calm zenith atmosphere (zero scanlines, zero dot grid) */
 .system-ambient-backdrop {
   background:
-    radial-gradient(60% 40% at 15% 0%, var(--nv-aura-primary) 0%, transparent 70%),
-    radial-gradient(50% 35% at 85% 5%, var(--nv-aura-secondary) 0%, transparent 70%);
+    radial-gradient(58% 36% at 18% 0%, var(--nv-aura-primary) 0%, transparent 72%),
+    radial-gradient(46% 32% at 86% 6%, var(--nv-aura-secondary) 0%, transparent 72%);
 }
 
-/* Subtle Matrix code-horizon dot pattern confined to top header edge only */
-.system-dot-horizon {
-  background-image: radial-gradient(var(--nv-border) 1px, transparent 1px);
-  background-size: 20px 20px;
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55) 0%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55) 0%, transparent 100%);
+/* One restrained entrance settle (visible by default at 0.7 opacity) */
+@keyframes nvSettle {
+  from {
+    opacity: 0.72;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nv-settle {
+  animation: nvSettle var(--dur-long) var(--ease-out) both;
 }
 
 /* ==========================================================================
-   ERGONOMIC THEME BRIDGE FOR DEEP SUB-MODULES
-   Harmonizes all dashboard tabs (Sleep, Habits, Nutrition, Health Data,
-   Workouts, Biometrics) so every view respects low-halation & Daylight/Night.
+   COMPATIBILITY THEME BRIDGE FOR SECONDARY MODULES
+   Keeps Sleep, Habits, Nutrition, Health Data, Workouts, Biometrics harmonized
+   across Obsidian, Matrix Night, and Daylight modes.
    ========================================================================== */
 
-/* 1. Soften legacy harsh cyan-600/700 contrast across dark modes */
 [data-theme="obsidian"] .text-cyan-600,
 [data-theme="matrix-night"] .text-cyan-600 {
   color: var(--nv-text-secondary) !important;
 }
 
 [data-theme="obsidian"] .text-cyan-500 {
-  color: #7dd3fc !important;
+  color: var(--nv-accent) !important;
 }
 
 [data-theme="matrix-night"] .text-cyan-400,
 [data-theme="matrix-night"] .text-cyan-300,
 [data-theme="matrix-night"] .text-cyan-200,
 [data-theme="matrix-night"] .text-cyber-cyan {
-  color: #6ee7b7 !important;
+  color: var(--nv-accent) !important;
 }
 
 [data-theme="matrix-night"] .border-cyan-800,
 [data-theme="matrix-night"] .border-cyan-900,
 [data-theme="matrix-night"] .border-cyan-500\/40 {
-  border-color: rgba(52, 211, 153, 0.28) !important;
+  border-color: var(--nv-border-strong) !important;
 }
 
 [data-theme="matrix-night"] .bg-cyan-400,
 [data-theme="matrix-night"] .bg-cyan-500 {
-  background-color: #34d399 !important;
+  background-color: var(--nv-accent) !important;
 }
 
-/* 2. Upgrade legacy raw gray-900 / gray-950 containers into cohesive elevated surfaces */
 .nv-app-shell .bg-gray-900,
 .nv-app-shell .bg-\[\#0b1520\] {
   background-color: var(--nv-surface);
@@ -274,10 +466,9 @@ textarea:focus-visible {
 .nv-app-shell .border-cyan-800,
 .nv-app-shell .border-cyan-900,
 .nv-app-shell .border-slate-800 {
-  border-color: var(--nv-border);
+  border-color: var(--nv-rule);
 }
 
-/* 3. Daylight Clarity Theme Overrides — guarantees WCAG AA contrast everywhere */
 [data-theme="daylight"] .nv-app-shell,
 [data-theme="daylight"] .nv-modal-surface {
   color: var(--nv-text);
@@ -297,25 +488,25 @@ textarea:focus-visible {
 [data-theme="daylight"] .bg-slate-900\/90,
 [data-theme="daylight"] .bg-slate-900\/70,
 [data-theme="daylight"] .bg-gray-800 {
-  background-color: #e9eff6 !important;
+  background-color: var(--nv-surface-2) !important;
 }
 
 [data-theme="daylight"] .text-slate-100,
 [data-theme="daylight"] .text-slate-200,
 [data-theme="daylight"] .text-gray-100,
 [data-theme="daylight"] .text-white {
-  color: #0f172a !important;
+  color: var(--nv-text) !important;
 }
 
 [data-theme="daylight"] .text-slate-300,
 [data-theme="daylight"] .text-gray-300 {
-  color: #334155 !important;
+  color: var(--nv-text-secondary) !important;
 }
 
 [data-theme="daylight"] .text-slate-400,
 [data-theme="daylight"] .text-slate-500,
 [data-theme="daylight"] .text-gray-400 {
-  color: #475569 !important;
+  color: var(--nv-text-muted) !important;
 }
 
 [data-theme="daylight"] .text-cyan-200,
@@ -324,30 +515,30 @@ textarea:focus-visible {
 [data-theme="daylight"] .text-cyan-500,
 [data-theme="daylight"] .text-cyan-600,
 [data-theme="daylight"] .text-cyber-cyan {
-  color: #0369a1 !important;
+  color: var(--nv-accent) !important;
 }
 
 [data-theme="daylight"] .text-emerald-300,
 [data-theme="daylight"] .text-emerald-400 {
-  color: #047857 !important;
+  color: var(--nv-matrix) !important;
 }
 
 [data-theme="daylight"] .text-amber-200,
 [data-theme="daylight"] .text-amber-300,
 [data-theme="daylight"] .text-amber-400 {
-  color: #b45309 !important;
+  color: var(--nv-amber) !important;
 }
 
 [data-theme="daylight"] .text-rose-300,
 [data-theme="daylight"] .text-rose-400 {
-  color: #be123c !important;
+  color: var(--nv-rose) !important;
 }
 
 [data-theme="daylight"] .border-slate-700,
 [data-theme="daylight"] .border-slate-800,
 [data-theme="daylight"] .border-cyan-800,
 [data-theme="daylight"] .border-cyan-900 {
-  border-color: rgba(15, 23, 42, 0.13) !important;
+  border-color: var(--nv-rule) !important;
 }
 
 [data-theme="daylight"] .bg-cyan-400,
@@ -356,11 +547,11 @@ textarea:focus-visible {
 }
 
 [data-theme="daylight"] .bg-cyan-400 {
-  background-color: #0284c7 !important;
+  background-color: var(--nv-accent) !important;
 }
 
 [data-theme="daylight"] .bg-emerald-500 {
-  background-color: #059669 !important;
+  background-color: var(--nv-matrix) !important;
 }
 
 [data-theme="daylight"] .bg-cyan-950\/50,
@@ -369,7 +560,7 @@ textarea:focus-visible {
 [data-theme="daylight"] .bg-cyan-900\/50,
 [data-theme="daylight"] .bg-cyan-900\/60,
 [data-theme="daylight"] .bg-cyan-900 {
-  background-color: rgba(2, 132, 199, 0.11) !important;
+  background-color: var(--nv-accent-soft) !important;
 }
 
 [data-theme="daylight"] .bg-emerald-950\/20,
@@ -377,18 +568,18 @@ textarea:focus-visible {
 [data-theme="daylight"] .bg-emerald-950\/30,
 [data-theme="daylight"] .bg-emerald-950\/60,
 [data-theme="daylight"] .bg-emerald-950\/70 {
-  background-color: rgba(5, 150, 105, 0.1) !important;
+  background-color: var(--nv-matrix-soft) !important;
 }
 
 [data-theme="daylight"] .bg-amber-950\/70 {
-  background-color: rgba(217, 119, 6, 0.1) !important;
+  background-color: var(--nv-amber-soft) !important;
 }
 
 [data-theme="daylight"] .bg-rose-950\/70 {
-  background-color: rgba(225, 29, 72, 0.1) !important;
+  background-color: var(--nv-rose-soft) !important;
 }
 
-/* Respect user OS Reduced Motion preference */
+/* Respect OS Reduced Motion preference */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

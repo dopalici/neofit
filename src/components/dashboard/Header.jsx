@@ -1,10 +1,22 @@
 import React from "react";
-import { Eye, Moon, Settings, Sparkles, Sun } from "lucide-react";
+import { Eye, Moon, RefreshCw, Settings, Sparkles, Sun } from "lucide-react";
 
 const THEME_META = {
-  obsidian: { label: "Obsidian", icon: Eye, title: "System Obsidian (Click to switch visual comfort mode)" },
-  "matrix-night": { label: "Night", icon: Moon, title: "Matrix Night — Low-Blue Circadian Mode" },
-  daylight: { label: "Daylight", icon: Sun, title: "Daylight Clarity — High-Ambient Sunlight Mode" },
+  obsidian: {
+    label: "Obsidian",
+    icon: Eye,
+    title: "System Obsidian (Click to switch visual comfort mode)",
+  },
+  "matrix-night": {
+    label: "Night",
+    icon: Moon,
+    title: "Matrix Night — Low-Blue Circadian Mode",
+  },
+  daylight: {
+    label: "Daylight",
+    icon: Sun,
+    title: "Daylight Clarity — High-Ambient Sunlight Mode",
+  },
 };
 
 export default function Header({
@@ -13,66 +25,83 @@ export default function Header({
   onCycleTheme,
   onOpenSettings,
   onOpenAIChatbot,
+  className = "",
 }) {
   const themeInfo = THEME_META[theme] || THEME_META.obsidian;
   const ThemeIcon = themeInfo.icon;
 
   return (
     <header
-      className="backdrop-blur-md border-b sticky top-0 z-30 transition-colors safe-top"
+      className={`backdrop-blur-md border-b sticky top-0 z-30 transition-colors safe-top ${className}`}
       style={{
-        backgroundColor: "color-mix(in srgb, var(--nv-bg-elevated) 88%, transparent)",
-        borderColor: "var(--nv-border)",
+        backgroundColor: "color-mix(in oklab, var(--nv-bg-elevated) 90%, transparent)",
+        borderColor: "var(--nv-rule)",
       }}
     >
-      <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-3">
-        <div className="flex justify-between items-center gap-3">
-          <div className="flex items-center space-x-3">
-            <span className="text-lg sm:text-xl font-mono font-bold tracking-wider text-cyan-300">
-              NEO•VITRU
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 h-14 flex justify-between items-center gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span
+            className="text-base sm:text-lg font-bold tracking-wider truncate"
+            style={{ color: "var(--nv-text)" }}
+          >
+            NEO<span style={{ color: "var(--nv-accent)" }}>•</span>VITRU
+          </span>
+          {isConnecting && (
+            <span
+              className="inline-flex items-center gap-1.5 text-xs font-mono"
+              style={{ color: "var(--nv-accent)" }}
+            >
+              <RefreshCw size={12} className="animate-spin" aria-hidden="true" />
+              <span className="hidden sm:inline">Syncing</span>
             </span>
-            <span className="hidden md:inline-block text-[10px] font-mono tracking-widest uppercase text-emerald-300 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/25">
-              SYSTEM v2
-            </span>
-            {isConnecting && (
-              <div className="flex items-center space-x-1.5">
-                <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                <span className="text-xs text-cyan-400 font-mono">SYNCING</span>
-              </div>
-            )}
-          </div>
+          )}
+        </div>
 
-          <div className="flex items-center space-x-2">
-            {onCycleTheme && (
-              <button
-                type="button"
-                onClick={onCycleTheme}
-                title={themeInfo.title}
-                aria-label={`Switch visual theme (current: ${themeInfo.label})`}
-                className="px-3 py-2 bg-slate-900/80 text-slate-200 border border-slate-700/80 rounded-lg font-mono text-xs hover:border-cyan-400/60 transition-colors flex items-center gap-1.5"
-              >
-                <ThemeIcon size={13} className="text-emerald-400" />
-                <span className="hidden sm:inline">{themeInfo.label}</span>
-              </button>
-            )}
+        <div className="flex items-center gap-2">
+          {onCycleTheme && (
             <button
               type="button"
-              onClick={onOpenAIChatbot}
-              className="px-3.5 py-2 bg-cyan-500/15 text-cyan-200 border border-cyan-500/40 rounded-lg font-mono text-xs hover:bg-cyan-400 hover:text-slate-950 transition-colors flex items-center"
+              onClick={onCycleTheme}
+              title={themeInfo.title}
+              aria-label={`Switch visual theme (current: ${themeInfo.label})`}
+              className="h-9 px-2.5 sm:px-3 rounded-lg border text-xs font-medium transition-colors inline-flex items-center gap-1.5"
+              style={{
+                backgroundColor: "var(--nv-surface)",
+                borderColor: "var(--nv-rule)",
+                color: "var(--nv-text-secondary)",
+              }}
             >
-              <Sparkles size={13} className="mr-1.5" />
-              <span>AI Coach</span>
+              <ThemeIcon size={14} style={{ color: "var(--nv-accent)" }} aria-hidden="true" />
+              <span className="hidden sm:inline">{themeInfo.label}</span>
             </button>
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="px-3 py-2 bg-slate-900/80 text-slate-200 border border-slate-700/80 rounded-lg font-mono text-xs hover:border-slate-500 transition-colors flex items-center"
-              aria-label="Open Settings and Integrations"
-            >
-              <Settings size={14} className="sm:mr-1.5" />
-              <span className="hidden sm:inline">Settings</span>
-            </button>
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={onOpenAIChatbot}
+            className="h-9 px-3 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
+            style={{
+              backgroundColor: "var(--nv-accent-soft)",
+              border: "1px solid var(--nv-border-strong)",
+              color: "var(--nv-accent)",
+            }}
+          >
+            <Sparkles size={13} aria-hidden="true" />
+            <span>Coach</span>
+          </button>
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="h-9 w-9 sm:w-auto sm:px-3 rounded-lg border text-xs font-medium transition-colors inline-flex items-center justify-center gap-1.5"
+            style={{
+              backgroundColor: "var(--nv-surface)",
+              borderColor: "var(--nv-rule)",
+              color: "var(--nv-text-secondary)",
+            }}
+            aria-label="Open Settings and Integrations"
+          >
+            <Settings size={14} aria-hidden="true" />
+            <span className="hidden sm:inline">Settings</span>
+          </button>
         </div>
       </div>
     </header>
